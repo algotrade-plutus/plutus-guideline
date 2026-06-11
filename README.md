@@ -1122,7 +1122,60 @@ Authors on `plutus-verify` ≥ 0.2.10 can ignore G4, G5, and G11 — they descri
 
 # 8  Sample projects & badges
 
-<!-- TODO(T12) -->
+The projects listed in §8.1 were reviewed and badged under V1's criteria — a human-judged
+compliance estimate against the V1 README requirements. Per Appendix A they remain
+valid as **v1-legacy** until a maintainer re-runs `plutus check` and the `plutus-scoring`
+routine against a V2 manifest. When a project is re-verified under V2, its Standard column
+entry is updated to `v2` and the badge score is replaced with the machine-derived
+bucket breakdown (50/25/10/15) from §5. Badge markup follows §5.4.
+
+## 8.1  Badged projects
+
+| **ID** | **Project Name** | **Strategy Type** | **Author/Maintainer** | **Program** | **PLUTUS Badge** | **Standard** |
+|--------|------------------|-------------------|-----------------------|:-----------:|:---------------------:|:------------:|
+| 1 | [PROTO:SmartBeta](https://github.com/algotrade-research/ProtoSmartBeta) | [Smart-Beta](https://hub.algotrade.vn/knowledge-hub/smart-beta-strategies/) | [Tạ Quang Khôi](https://github.com/khoi-ta), [Nguyễn An Dân](https://github.com/dan-algo) | ALGOTRADE PROTO | ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen)![Static Badge](https://img.shields.io/badge/PLUTUS-PROTO-%23880A88) | v1-legacy |
+| 2 | [PROTO:Market Maker](https://github.com/algotrade-research/ProtoMarketMaker) | [Market-Making](https://hub.algotrade.vn/knowledge-hub/market-making-strategy/) | [Tạ Quang Khôi](https://github.com/khoi-ta), [Nguyễn An Dân](https://github.com/dan-algo) | ALGOTRADE PROTO | ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen)![Static Badge](https://img.shields.io/badge/PLUTUS-PROTO-%23880A88) | v1-legacy |
+| 3 | [InstiFund](https://github.com/algotrade-research/InstiFund) | [Smart-Beta](https://hub.algotrade.vn/knowledge-hub/smart-beta-strategies/), [ETF Front-Runner Strategy](https://hub.algotrade.vn/knowledge-hub/front-running-etf-strategy/) | [Đặng Minh Nhựt](https://github.com/BJMinhNhut) | ALGOTRADE Internship 11.24 | ![Static Badge](https://img.shields.io/badge/PLUTUS-80%25-darkgreen) | v1-legacy |
+| 4 | [DynamicGrid](https://github.com/algotrade-course/DynamicGrid) | [Grid](https://hub.algotrade.vn/knowledge-hub/grid-strategy/) | [Võ Hoàng Phúc Khang](https://github.com/vokhang1412), [Nguyễn Thanh Thảo Ly](https://github.com/sxweetlollipop2912), [Nguyễn Tuấn Khanh](https://github.com/ng-tuan-khanh) | CS408 - APCS, HCMUS - 2025 | ![Static Badge](https://img.shields.io/badge/PLUTUS-80%25-darkgreen) | v1-legacy |
+| 5 | [SearchingTA](https://github.com/algotrade-research/SearchingTA) | [Momentum](https://hub.algotrade.vn/knowledge-hub/momentum-strategy/), [Mean-Reversion](https://hub.algotrade.vn/knowledge-hub/mean-reversion-strategy/) | [Tống Thiên Phước](https://github.com/tphuoc04/) | ALGOTRADE Internship 6.24 |  ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen) | v1-legacy |
+| 6 | [FinTrip](https://github.com/algotrade-research/FinTrip) | [Smart-Beta](https://hub.algotrade.vn/knowledge-hub/smart-beta-strategies/) | [Tạ Quang Khôi](https://github.com/khoi-ta) | ALGOTRADE Internship 11.23 | ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen) | v1-legacy |
+| 7 | [Statisical-Arbitrage](https://github.com/algotrade-research/Statisical-Arbitrage) | [Market-Neutral: Statistical Arbitrage](https://hub.algotrade.vn/knowledge-hub/market-neutral-strategy/) | [Cao Quang Hiếu](https://github.com/HieuQCao) | ALGOTRADE Internship 11.24 | ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen) | v1-legacy |
+| 8 | [TruTrend](https://github.com/algotrade-course/TruTrend) | [Momentum](https://hub.algotrade.vn/knowledge-hub/momentum-strategy/) | [Phạm Võ Quỳnh Như](https://github.com/pvqn), [Hồ Việt Bảo Long](https://github.com/lob23), [Nguyễn Phúc Bảo Uyên](https://github.com/Hollyuyen) | CS408 - APCS, HCMUS - 2025 | ![Static Badge](https://img.shields.io/badge/PLUTUS-70%25-darkgreen) | v1-legacy |
+| 9 | [Intraday-Momentum](https://github.com/algotrade-research/Intraday-Momentum) | [Momentum](https://hub.algotrade.vn/knowledge-hub/momentum-strategy/) | [Lâm Thành Duy](https://github.com/ltduy6) | ALGOTRADE Internship 11.24 | ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen) | v1-legacy |
+| 10 | [DuoMA](https://github.com/algotrade-course/DuoMA) | [Momentum](https://hub.algotrade.vn/knowledge-hub/momentum-strategy/) | [Nguyễn An Dân](https://github.com/dan-algo) (Maintainer) | CS408 - APCS, HCMUS - 2025 | ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen) | v1-legacy |
+| 11 | [QuarterOscillate](https://github.com/algotrade-course/QuarterOscillate) | [Mean-Reversion](https://hub.algotrade.vn/knowledge-hub/mean-reversion-strategy/) | [Đặng Đức Khiêm](https://github.com/duckhiemdang), [Nguyễn Lộc An](https://github.com/LucidNg), [Đặng Minh Triết](https://github.com/triet0612) | CS408 - APCS, HCMUS - 2025 | ![Static Badge](https://img.shields.io/badge/PLUTUS-70%25-darkgreen) | v1-legacy |
+| 12 | [MomMean](https://github.com/algotrade-course/MomMean) | [Mean-Reversion](https://hub.algotrade.vn/knowledge-hub/mean-reversion-strategy/), [Momentum](https://hub.algotrade.vn/knowledge-hub/momentum-strategy/) | [Nguyễn Đức Hưng](https://github.com/DucHungGithub), [Hoàng Thiên Đức](https://github.com/Locopaly), Hoàng Nghĩa Việt |   CS408 - APCS, HCMUS - 2025 | ![Static Badge](https://img.shields.io/badge/PLUTUS-75%25-darkgreen) | v1-legacy |
+| 13 | [SmartBeta](https://github.com/algotrade-research/SmartBeta) | [Smart-Beta](https://hub.algotrade.vn/knowledge-hub/smart-beta-strategies/) | [Lê Đức Phú](https://github.com/dphu2609) | ALGOTRADE Internship 11.24 | ![Static Badge](https://img.shields.io/badge/PLUTUS-70%25-darkgreen) | v1-legacy |
+| 14 | [scalping-strategy](https://github.com/algotrade-research/scalping-strategy) | [Scalping](https://hub.algotrade.vn/knowledge-hub/scalping-strategy/) | [Trần Thị Phương Linh](https://github.com/ttplinh) | ALGOTRADE Internship 11.24 | ![Static Badge](https://img.shields.io/badge/PLUTUS-70%25-darkgreen) | v1-legacy |
+| 15 | [DeepMM](https://github.com/algotrade-research/deepmm) | [Market-Making](https://hub.algotrade.vn/knowledge-hub/market-making-strategy/) | [Lê Thanh Danh](https://github.com/danhleth), [Lương Thanh Anh Đức](https://github.com/luongthanhanhduc)| ALGOTRADE Internship 11.23 | ![Static Badge](https://img.shields.io/badge/PLUTUS-50%25-%23BA8E23) | v1-legacy |
+
+### Other example projects
+
+There is also a repertoire of projects that adhere to the PLUTUS Standard, which comes from the
+educational program offered by ALGOTRADE, that can be explored
+[here](https://github.com/algotrade-course).
+
+Listed are the projects from:
+- [CS408: Computational Finance, Algorithmic Trading - APCS, HCMUS, 2025](https://github.com/algotrade-course#cs408---apcs-hcmus---2025-project)
+
+## 8.2  Canonical V2 reference project
+
+[**Group09-BuyHighSellLow**](https://github.com/algotrade-education/Group09-BuyHighSellLow)
+(`algotrade-education/Group09-BuyHighSellLow`) is the first designated canonical V2 reference
+repository. It carries a committed `.plutus/manifest.yaml` (`schema_version: "2.0"`) with fully
+instrumented pipeline steps and a `plutus check` exit 0 verified against the declared
+expected-metrics contract (§1.1, §4). Its manifest and results files serve as the worked example
+for all annotations in this standard; its bucket breakdown is recorded in CHANGELOG. New projects
+that want a concrete V2 template should start from this repository's `.plutus/` directory structure
+and SDK instrumentation pattern (§7.1).
+
+| Field | Value |
+|-------|-------|
+| Repository | [algotrade-education/Group09-BuyHighSellLow](https://github.com/algotrade-education/Group09-BuyHighSellLow) |
+| Manifest | `.plutus/manifest.yaml` (`schema_version: "2.0"`) |
+| Verification | `plutus check` exit 0 |
+| Standard | v2 |
+| Score | scored in CHANGELOG |
 
 ---
 
