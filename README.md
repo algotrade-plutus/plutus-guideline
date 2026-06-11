@@ -1123,7 +1123,7 @@ Authors on `plutus-verify` ≥ 0.2.10 can ignore G4, G5, and G11 — they descri
 # 8  Sample projects & badges
 
 The projects listed in §8.1 were reviewed and badged under V1's criteria — a human-judged
-compliance estimate against the V1 README requirements. Per Appendix A they remain
+compliance estimate against the V1 README requirements. Per Appendix A, they remain
 valid as **v1-legacy** until a maintainer re-runs `plutus check` and the `plutus-scoring`
 routine against a V2 manifest. When a project is re-verified under V2, its Standard column
 entry is updated to `v2` and the badge score is replaced with the machine-derived
@@ -1181,4 +1181,28 @@ and SDK instrumentation pattern (§7.1).
 
 # Appendix A  Versioning & relationship to V1
 
-<!-- TODO(T13) -->
+**V1 preserved verbatim.** The original V1 standard is archived without modification at
+[versions/v1/README.md](versions/v1/README.md), including its sample project table and badge
+percentage rules. The legacy assessment guide and report forms that previously lived at the
+repository root have moved to [versions/v1/assessment/](versions/v1/assessment/).
+
+**V1-badged repos remain valid.** Projects that earned a badge under V1 keep their badges and
+are considered **v1-legacy** — scored under the original human-judged prose criteria — until a
+maintainer re-verifies the project under V2. Re-verification requires a committed
+`.plutus/manifest.yaml` (`schema_version: "2.0"`) and a clean `plutus check` exit 0; once
+confirmed, the project's Standard column in §8 is updated to `v2` and the badge score is
+replaced with the machine-derived bucket breakdown (50/25/10/15) from §5.
+
+**Version correspondence.**
+
+| Standard version | `plutus-verify` | Manifest `schema_version` | Results `schema_version` |
+|------------------|-----------------|---------------------------|--------------------------|
+| V2 (2026-06, this document) | ≥ 0.2.10 | `"2.0"` | `"1.0"` |
+| V1 | n/a (prose standard) | n/a | n/a |
+
+V2 of this standard was designed and validated against `plutus-verify` 0.2.10. Any release
+≥ 0.2.10 and < 0.3.0 is expected to remain compatible; breaking changes will increment the
+manifest or results schema version and be reflected in this table.
+
+See [CHANGELOG.md](CHANGELOG.md) for the full version table and a summary of normative behavior
+changes introduced in V2.
