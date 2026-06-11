@@ -76,7 +76,7 @@ secrets: []
 #                                        (free-form; unknown values pass schema,
 #                                        fail at download time)
 #   url              REQUIRED string   — full URL for remote kinds; "." for local
-#   expected_layout  REQUIRED array    — relative paths the source must provide
+#   expected_layout  REQUIRED array    — relative paths or glob patterns the source must provide
 #   satisfies        REQUIRED array    — step ids this source satisfies (minItems: 1)
 #   secrets_required optional array    — secret keys required for authenticated access;
 #                                        should name keys declared in secrets[]

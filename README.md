@@ -1108,13 +1108,13 @@ The table below lists known failure patterns. Detailed **Symptom → Diagnosis �
 | G2 | Internally-conflicting dependency file | All versions — current |
 | G3 | `.env` placeholders crash shell sourcing | All versions — current |
 | G4 | `visual_similarity` artifacts silently failed | **Historical** — fixed in 0.2.6; not present on ≥ 0.2.6 |
-| G5 | Container stderr/stdout swallowed | **Historical** — fixed in 0.2.6; not present on ≥ 0.2.6 |
+| G5 | Container stderr/stdout swallowed | Partially fixed in 0.2.6; step stderr surfacing still deferred — current |
 | G6 | SDK rejects `Decimal` metric values | All versions — current |
 | G7 | Chart baseline captured after smoke-run is tautological | All versions — current |
 | G11 | Runtime volume mount bypasses `.dockerignore` | **Historical** — v0.2.9 only; fixed in 0.2.10 |
 | G12 | All execution steps FAIL exit=2 after declaring `step.inputs` | v0.2.10+ — current behavior |
 
-Authors on `plutus-verify` ≥ 0.2.10 can ignore G4, G5, and G11 — they describe bugs in earlier releases. G12 is the most common pitfall on the current release: when `step.inputs` is non-empty it is a complete-coverage allowlist, so the step's own script must be listed or the container will exit 2 with "No such file or directory." The recommended default is `inputs: []` on every step; tighten step-by-step after confirming a working baseline (see §1.1 and [templates/manifest.yaml](templates/manifest.yaml)). G7 is the subtlest active pitfall: capture chart baselines from a real run before any smoke-run overwrites them, or the comparison becomes tautological.
+Authors on `plutus-verify` ≥ 0.2.10 can ignore G4 and G11 — they describe bugs in earlier releases. G5 is only partially resolved: if a step fails inside the container, its stderr may not surface in the report; reproduce the command manually to diagnose. G12 is the most common pitfall on the current release: when `step.inputs` is non-empty it is a complete-coverage allowlist, so the step's own script must be listed or the container will exit 2 with "No such file or directory." The recommended default is `inputs: []` on every step; tighten step-by-step after confirming a working baseline (see §1.1 and [templates/manifest.yaml](templates/manifest.yaml)). G7 is the subtlest active pitfall: capture chart baselines from a real run before any smoke-run overwrites them, or the comparison becomes tautological.
 
 > **Version note.** This standard corresponds to `plutus-verify` ≥ 0.2.10. See Appendix A for the full version table and the changelog of normative behavior changes across minor releases.
 
@@ -1175,7 +1175,7 @@ and SDK instrumentation pattern (§7.1).
 | Manifest | `.plutus/manifest.yaml` (`schema_version: "2.0"`) |
 | Verification | `plutus check` exit 0 |
 | Standard | v2 |
-| Score | scored in CHANGELOG |
+| Score | 90% (Gold) — bucket breakdown in [CHANGELOG.md](CHANGELOG.md) |
 
 ---
 
