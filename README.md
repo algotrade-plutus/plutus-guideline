@@ -24,7 +24,7 @@ A compliant V2 project provides two machine-readable contracts: First, the autho
 declares a `.plutus/manifest.yaml` (`schema_version: "2.0"`) that names every
 pipeline step, specifies how data is acquired, and states the `expected` metrics
 and artifacts each step must produce (see §1.1). Second, each step's script emits
-a strict `.plutus/run/<step>/results.json` (`schema_version: "1.0"`) at runtime
+a strict `.plutus/run/<step_id>/results.json` (`schema_version: "1.0"`) at runtime
 (see §1.2). The `plutus-verify` framework (invoked as `plutus check`) reads the
 manifest, builds the declared environment in a container, runs the steps in
 dependency order, and compares the produced `results.json` files against the
@@ -199,9 +199,137 @@ expected:
         tolerance: {kind: relative, value: 0.05}
 ```
 
-## 1.2  The results contract  (`.plutus/run/<step>/results.json`, `schema_version: "1.0"`)
+## 1.2  The results contract  (`.plutus/run/<step_id>/results.json`, `schema_version: "1.0"`)
 
-<!-- TODO(T4) -->
+### Normative requirement
+
+Each step that the verifier executes (steps with `verification_mode: execute`,
+the default) MUST write `.plutus/run/<step_id>/results.json` on a clean exit.
+The file MUST be valid JSON and MUST validate against the PLUTUS results JSON
+Schema (Draft 2020-12). The authoritative schema lives in
+`plutus_verify/sdk/schema.py`; any tool or language that produces a conforming
+file satisfies the contract.
+
+The Python SDK (`import plutus_verify as pv` … `with pv.step(...) as r:`) is
+the recommended producer — it validates at call time and writes atomically — one
+convenience path, not the only one.
+
+> **Table convention:** **MUST** = required; *optional* = not required, but validated if present; *conditional* = required only under the stated condition.
+
+> **Strict validation:** `additionalProperties: false` is set at the root, metric, and artifact levels — unknown or misspelled keys are rejected there. `metadata` is the sole exception (deliberately open; see the shape table).
+
+---
+
+### Top-level shape
+
+| Key | Required | Type / Constraint | Notes |
+|-----|----------|-------------------|-------|
+| `schema_version` | MUST | string | Exactly `"1.0"` — a schema `const` |
+| `step_id` | MUST | string | Matches the manifest step's `id` |
+| `metrics` | MUST | array | Array of metric objects (may be `[]`) |
+| `artifacts` | MUST | array | Array of artifact objects (may be `[]`) |
+| `metadata` | MUST | object | Free key/value map (the only level without `additionalProperties: false` — deliberately open for author-supplied context such as seeds or notes); auto-populated fields documented below |
+
+`step_id` MUST equal the `id` of the manifest step that wrote the file; it MUST match `^[a-z][a-z0-9_]*$` — the same snake_case pattern enforced on metric and artifact names.
+
+---
+
+### Metric object
+
+| Field | Required | Type / Constraint | Notes |
+|-------|----------|-------------------|-------|
+| `name` | MUST | string | Matches `^[a-z][a-z0-9_]*$`; unique within the step |
+| `value` | MUST | number | Finite `int` or `float`; `Decimal` and `bool` are rejected |
+| `unit` | MUST | string enum | One of `fraction`, `ratio`, `count`, `currency_usd`, `seconds` |
+
+> **WARNING — `percent` is rejected; always store a decimal (a common authoring error).**
+> The `percent` unit is deliberately absent from the schema. Store `0.42`,
+> not `42`, and declare it as `unit: "fraction"`.
+
+For the fraction-vs-ratio choice: use `fraction` for values that are bounded shares naturally rendered as a percentage (win rate, max drawdown, annual return); use `ratio` for unbounded dimensionless numbers like Sharpe or Sortino. The rule: **any value you would write "42%" on a report → store `0.42` with `unit="fraction"`; any Sharpe-like ratio with no natural percent interpretation → `unit="ratio"`.**
+
+---
+
+### Artifact object
+
+| Field | Required | Type / Constraint | Notes |
+|-------|----------|-------------------|-------|
+| `name` | MUST | string | Matches `^[a-z][a-z0-9_]*$`; unique within the step |
+| `path` | MUST | string | Path relative to the step's working directory |
+| `kind` | MUST | string enum | One of `chart`, `csv`, `json`, `image`, `other` |
+
+---
+
+### Write semantics
+
+The write is **atomic** (rename-based) — readers never observe a partial file.
+(The SDK's implementation serializes to `results.json.tmp` then calls
+`os.replace`; other producers may use any equivalent atomic-rename approach.)
+A step that raises an exception produces **no** `results.json` — the verifier
+treats the absent file as a failed step.
+
+Two metadata fields are **auto-injected** at write time; user-supplied values take priority — the SDK sets these fields only if they are absent:
+
+| Injected key | Value | Override? |
+|--------------|-------|-----------|
+| `duration_seconds` | Wall-clock seconds elapsed inside the `with` block (rounded to 3 dp) | User-supplied `r.metadata(duration_seconds=…)` wins |
+| `git_commit` | Short 7-character HEAD SHA (best-effort; omitted if no `.git`) | User-supplied `r.metadata(git_commit=…)` wins |
+
+---
+
+### Python SDK (recommended path)
+
+```python
+import plutus_verify as pv
+
+with pv.step("in_sample") as r:
+    r.metric("sharpe_ratio", float(sharpe), unit="ratio")
+    r.metric("win_rate",     float(win),    unit="fraction")  # 0.42 means 42%
+    r.artifact("equity_curve", "out/equity.png", kind="chart")
+    r.metadata(seed=42)
+```
+
+The `pv.step()` context manager validates each `r.metric()` and `r.artifact()`
+call immediately (fail-fast at the offending line), then re-validates the
+assembled payload against the JSON Schema before writing. Any language or tool
+that writes a conforming `results.json` without the SDK is equally valid.
+
+---
+
+### Compact example — valid `results.json`
+
+```json
+{
+  "schema_version": "1.0",
+  "step_id": "in_sample",
+  "metrics": [
+    {"name": "sharpe_ratio",  "value": 1.42,  "unit": "ratio"},
+    {"name": "win_rate",      "value": 0.54,  "unit": "fraction"},
+    {"name": "total_trades",  "value": 312,   "unit": "count"},
+    {"name": "net_pnl",       "value": 4820.0,"unit": "currency_usd"},
+    {"name": "avg_hold_time", "value": 7200,  "unit": "seconds"}
+  ],
+  "artifacts": [
+    {"name": "equity_curve", "path": "out/equity.png", "kind": "chart"},
+    {"name": "trade_log",    "path": "out/trades.csv",  "kind": "csv"}
+  ],
+  "metadata": {
+    "duration_seconds": 18.4,
+    "git_commit": "3f2a1b7"
+  }
+}
+```
+
+---
+
+> **Note — `Decimal` values are rejected by the SDK (gotcha G6 in the
+> troubleshooting catalogue — see §7).** Metric helpers in many repos return
+> `decimal.Decimal` for monetary precision. The SDK's `r.metric()` accepts only
+> `int` or `float`; passing a `Decimal` raises `ValueError` immediately.
+> Always wrap the value: `r.metric("sharpe_ratio", float(bt.metric.sharpe_ratio(...)))`.
+
+How the verifier uses metrics and artifacts — tolerance semantics, comparison
+modes, and the exit-code contract — is defined in §4.
 
 ---
 
