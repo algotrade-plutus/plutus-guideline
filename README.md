@@ -896,7 +896,133 @@ badge. See §8 for the badge gallery and the current list of badged projects.
 
 # 6  README & documentation requirements (the Tidy bucket)
 
-<!-- TODO(T10) -->
+The requirements in this section are what the **Tidy / well-documented** bucket (25 pts, §5)
+scores. They are **not** the definition of compliance — that belongs to the two machine contracts (§1.1, §1.2).
+A repository that meets every requirement in this section but whose `plutus check` exits non-zero
+still scores 0 on the Reproducible bucket. Conversely, a repository that passes `plutus check`
+cleanly but whose README is sparse will be capped at around 75 pts. Good documentation and
+machine-verified reproducibility are complementary, not interchangeable.
+
+A legacy subjective assessment guide is preserved at
+[versions/v1/assessment/plutus-assessment-guide.md](versions/v1/assessment/plutus-assessment-guide.md)
+for historical context; it does not define V2 scoring.
+
+---
+
+## 6.1  The required README section template
+
+A Tidy V2 README contains the following sections. The structure is carried over directly from V1 §1;
+the constraints stated there are preserved.
+
+| Section | Required | Notes |
+|---------|----------|-------|
+| **Abstract** | MUST | Summarizes the project, motivation, methods, and findings in **fewer than five sentences** |
+| **Introduction** | MUST | Briefly discusses the project: the motivation ("Why?"), an overview of the method ("How?"), and the goal ("What?"). Should be 1–2 paragraphs; details belong in the final report |
+| **Related Work** or **Background** | optional | Brief prerequisite reading if the audience needs context before exploring the project |
+| **Trading (Algorithm) Hypotheses** | MUST | Discusses Step 1 of the 9-step process |
+| **Data** | MUST | Covers Steps 2–3; MUST contain two subsections: **Data Collection** (Step 2 — what data, period, format, structure, type; how to obtain it) and **Data Processing** (Step 3 — transformations applied, output location and format) |
+| **Implementation** (or **How to Run**) | MUST | Environment setup; concrete steps to replicate from In-sample Backtesting (Step 4) through Out-of-sample Backtesting (Step 6) or Paper Trading (Step 7); how to change algorithm configurations |
+| **In-sample Backtesting** | MUST | Standard parameter set, input data, and a **Result** subsection showing output tables/charts; link to the final report for the full experiment set |
+| **Optimization** | MUST | What was optimized, over what ranges, and a **Result** subsection; the final parameter values used downstream MUST match what the pipeline actually runs |
+| **Out-of-sample Backtesting** | MUST | Same structure as In-sample; results MUST reflect the post-optimization parameter set |
+| **Paper Trading** | optional | Step 7; same structure; include data source, period, instruments, and results |
+| **Conclusion** | optional | Summary of findings |
+| **Reference** | MUST | All cited works |
+| Link to Final Report/Paper | conditional | A hyperlink to the document. Required only when a final report exists; if in LaTeX, source + build instructions MUST be in the repo. |
+
+> **Structure may deviate from this template when the situation requires it**, as under V1 §1 — but
+> the README must still give a reader clear instructions for replicating results and an accurate
+> project overview.
+
+The complete set of parameters, input data, and outputs for all experiments is preferred in the
+**Final Report or Paper**, not in the README. The README's Result subsections show the *standard*
+(representative) run.
+
+---
+
+## 6.2  The five Tidy documentation checks
+
+These are the five checklist items the scoring rubric evaluates (~5 pts each). Each is actionable
+and independently scorable.
+
+### 6.2.1  README structure and metric-table consistency
+
+The README follows the section template above, **and** every metric table in the In-sample,
+Optimization, and Out-of-sample sections is **numerically consistent with the manifest's `expected`
+block** (§1.1). A discrepancy — for example, a Sharpe ratio of 1.42 in the README but an
+`expected` value of 1.35 in the manifest — is a Tidy failure regardless of whether `plutus check`
+exits 0. Authors MUST update both the README tables and the `expected` block together whenever
+results change.
+
+### 6.2.2  `.env.example` that parses under `source`
+
+The repository MUST include a `.env.example` file that exports every secret key declared in
+`secrets[]` (§1.1 and §3 data tiers). This file MUST parse without error under `source .env.example`
+(or `source .env` after copying).
+
+> **WARNING — unquoted `<angle-bracket>` placeholders break `source` (gotcha G3 in the
+> troubleshooting catalogue — see §7).** A line such as
+>
+> ```bash
+> # WRONG — the shell tries to evaluate <redis_host> as input-redirection
+> MARKET_REDIS_HOST=<redis_host>
+> ```
+>
+> causes `source .env` to fail with a parse error (e.g. `.env:8: parse error near '\n'`) on every shell
+> that interprets `<` as input-redirection. The correct form quotes the placeholder value:
+>
+> ```bash
+> # CORRECT — shell parses this as a plain string assignment
+> MARKET_REDIS_HOST="<redis_host>"
+> ```
+>
+> Every placeholder value in `.env.example` MUST be wrapped in double quotes so the file parses cleanly
+> under `source`.
+
+If a reviewer encounters an already-broken `.env` during setup, they can export only the needed keys (e.g. `eval "$(grep -E '^MARKET_' .env | sed 's/^/export /')"` — see §7 for the full workaround).
+
+### 6.2.3  All data inputs documented
+
+Every data input the pipeline reads — raw files, processed files, database tables, external API
+calls — MUST be accounted for: either declared in the manifest's `data_sources` block (§3) or committed to the repository (Tier 1, §3) and described in the README's Data section. A reviewer who reads the README and inspects the manifest must be able to run `plutus check` without discovering undeclared data dependencies ("surprise dependencies"). A file a step reads that appears in neither place is a surprise dependency. Common examples include an F2M data leg that is queried at import time without a declared secret or `data_sources` entry, or a static file read by a script that is neither committed nor listed in `expected_layout`.
+
+### 6.2.4  Optimization and parameter pipeline accurately described
+
+The Optimization section of the README MUST accurately describe what the optimization step actually
+does: which parameters were searched, over what ranges, by which method, and which values were
+selected for the final run. The parameters the Out-of-sample and Paper Trading steps use MUST match
+the values reported in the README — and those same values MUST be what the scripts actually pass to
+the pipeline. A README that describes a grid search over `[10, 20, 30]` while the script runs a
+single fixed value, or that reports a final window of 20 while the parameter file reads 15, is a
+Tidy failure.
+
+### 6.2.5  `.python-version` pin and CI workflow
+
+The repository MUST contain a `.python-version` file (or an equivalent version pin in
+`pyproject.toml` or a `python_version` field that is consistent with `env.python_version` in the
+manifest) so that local `pyenv` and CI environments resolve the same interpreter. Additionally, a
+CI workflow (GitHub Actions or equivalent) MUST be present that runs `plutus check` on each push or
+pull request. The workflow ensures that reproducibility is verified automatically rather than only
+at submission time. `plutus init` (§7) scaffolds a minimal `.github/workflows/plutus.yml` that
+satisfies this requirement. CI green confirms the Reproducible contract; it does not substitute for the README metric-table consistency check in §6.2.1.
+
+---
+
+## 6.3  Final Report / Paper rules (carried from V1 §1.1)
+
+A final report or paper is **optional** but strongly encouraged. When present:
+
+- It contains all the same sections as the README but in **more detail**. The `Related Work`
+  (or `Background`) and `Conclusion` sections are **required** in the final report (optional in the README only).
+- It should contain adequate documentation to reproduce the result up to:
+  - **Minimally** — Step 6: Out-of-sample Backtesting
+  - **Ideally** — Step 7: Paper Trading
+  of the [9-step process](https://hub.algotrade.vn/knowledge-hub/steps-to-develop-a-trading-algorithm/).
+- If the document is written in LaTeX (or any other compiled markup), the **source files and
+  compilation instructions MUST be committed to the repository**. A PDF-only submission without
+  source does not satisfy this requirement.
+- The complete set of parameters, input data, and outputs for all experiments belongs in the final
+  report, not in the README.
 
 ---
 
