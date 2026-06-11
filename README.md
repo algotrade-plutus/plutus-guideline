@@ -779,7 +779,118 @@ reference: how exit-code outcomes map to compliance scores → §5.
 
 # 5  Compliance & scoring (50/25/10/15) and badges
 
-<!-- TODO(T9) -->
+The PLUTUS compliance score is a single percentage derived from four weighted
+buckets. It replaces the hand-judged estimate used in V1 with a machine-derived
+number produced by the `plutus-scoring` routine (see §7 for the tooling
+overview). The only inputs to the score are the manifest, the scripts, the
+README, and — for the Reproducible bucket — the outcome of `plutus check`.
+
+## 5.1  The four buckets
+
+| Bucket | Weight | What it measures |
+|--------|--------|------------------|
+| **Reproducible** | 50 pts | `plutus check` exits 0 and README-claimed metrics match script output within declared tolerance |
+| **Tidy / well-documented** | 25 pts | README structure, install hygiene, no `<placeholder>` parse traps, code-hygiene patterns, docs match reality |
+| **Standardized / template** | 10 pts | Follows canonical PLUTUS shape (7 nine-steps, predictable file paths, externalized parameters); could serve as a template |
+| **Innovative** | 15 pts | New metrics, novel diagnostics, regime-tagged analytics, or strategy logic that is not textbook |
+
+Maximum possible total: 100 pts.
+
+---
+
+### Reproducible (50)
+
+This bucket's bar is identical to §4's exit-code contract: `plutus check`
+exits 0. The tier scale below rewards clean reproducibility and penalises
+workarounds:
+
+- **50** — `plutus check` exits 0 cleanly; no workarounds applied; all required metrics inside tolerance.
+- **45** — `plutus check` exits 0 but only after manifest-side workarounds (network/secret routing, snapshot seeding, etc.). Architectural smells were papered over, not fixed at source.
+- **35** — `plutus check` exits 0 only after touching `requirements.txt` or other tracked config.
+- **20** — Metrics match individually on host but `plutus check` cannot be made green within the session.
+- **0** — Scripts don't produce the claimed metrics within tolerance.
+
+---
+
+### Tidy / well-documented (25)
+
+Each of the five checklist items below is worth ~5 points; the bucket score is the sum of items satisfied. Unlike the other buckets, there are no named tiers.
+
+- README structure clean, metric tables present and consistent
+- `.env.example` parses with `source .env` (no unquoted `<placeholder>` lines)
+- All data inputs documented (no surprise dependencies like a missing F2M leg)
+- Optimization / parameter pipeline accurately described (script behavior matches docs)
+- Has `.python-version` or equivalent pin, plus CI workflow
+
+See §6 for the full documentation requirements that back this bucket.
+
+---
+
+### Standardized / template (10)
+
+- **10** — Canonical 4-step shape (`data_collection` → `in_sample_backtest` → `optimization` → `out_of_sample_backtest`), parameters externalized to `parameter/*.json`, charts in predictable `result/{backtest,optimization}/` paths, no module-level side effects.
+- **5** — Most of the above but one significant deviation (e.g., DB-at-import anti-pattern, divergent paper-trading script shape).
+- **0** — Could not serve as a template without significant rework.
+
+(The step names above are conventional step `id` values — the manifest `id` field — not the canonical `nine_step` keys of §2.)
+
+---
+
+### Innovative (15)
+
+- **15** — Novel metrics (regime-tagged P&L, ADX-conditional return histograms, custom drawdown decomposition), novel diagnostics, or non-textbook strategy logic.
+- **8** — Thoughtful strategy logic (regime-switching, opposite-extreme exits) but conventional analytical surface (standard Sharpe/Sortino/MDD/HPR + standard charts).
+- **0** — Textbook backtest with no original instrumentation or analysis.
+
+*(Bucket scores need not be multiples of 5; only the final sum is rounded.)*
+
+---
+
+## 5.2  Computing the score
+
+**Percentage = sum of the four bucket scores, rounded to the nearest 5%.**
+
+For example: Reproducible 45 + Tidy 20 + Standardized 10 + Innovative 8 = 83 pts → 83% → rounded to the nearest 5% = **85%**.
+
+The `plutus-scoring` routine (§7) applies this rule and emits the rounded score.
+
+---
+
+## 5.3  No hard gate on `plutus check`
+
+> **Note:** There is no hard pass/fail gate on `plutus check`. A repo that cannot make `plutus check` exit 0 is not disqualified from a badge — but Reproducible is 50% of the total, which caps a non-reproducing repo at the Bronze floor.
+
+A repo that scores 0 on Reproducible can accumulate at most 25 + 10 + 15 = **50 pts**, which lands it exactly at the Bronze floor — and only if it is exemplary in every other dimension. The intent is to keep the door open for incremental improvement without implying that reproducibility is optional — it is simply priced in, not gated.
+
+---
+
+## 5.4  Badge tiers
+
+Badge scores are now machine-derived via the `plutus-scoring` routine (§7),
+not a hand-judged estimate as in V1. The thresholds and badge markup are
+carried forward unchanged from V1. Repositories scoring below 50% do not qualify for a compliance badge.
+
+**Standard compliance badges** (score shown in the badge label):
+
+| Score range | Badge | Shields.io markup |
+|-------------|-------|-------------------|
+| 50%–69% | Bronze | `![Static Badge](https://img.shields.io/badge/PLUTUS-<score>-%23BA8E23)` |
+| 70%–99% | Gold | `![Static Badge](https://img.shields.io/badge/PLUTUS-<score>-darkgreen)` |
+| 100% | Platinum | `![Static Badge](https://img.shields.io/badge/PLUTUS-100%25-purple)` |
+
+Replace `<score>` with the rounded number followed by `%25` (the URL-encoded `%` sign), e.g. `85%25` renders as `85%`. Platinum is always `100%25`; no placeholder needed.
+
+**Special-designation badges** (awarded editorially, independent of score):
+
+| Designation | Badge | Shields.io markup |
+|-------------|-------|-------------------|
+| Sample Project | ![Static Badge](https://img.shields.io/badge/PLUTUS-Sample-darkblue) | `![Static Badge](https://img.shields.io/badge/PLUTUS-Sample-darkblue)` |
+| PROTO series | ![Static Badge](https://img.shields.io/badge/PLUTUS-PROTO-%23880A88) | `![Static Badge](https://img.shields.io/badge/PLUTUS-PROTO-%23880A88)` |
+
+The Sample badge is given to projects selected as PLUTUS Sample Projects
+featured in this guideline. The PROTO badge is given to projects in the PROTO
+algorithm series developed by ALGOTRADE. Both may be combined with a compliance
+badge. See §8 for the badge gallery and the current list of badged projects.
 
 ---
 
