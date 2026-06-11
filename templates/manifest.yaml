@@ -1,0 +1,262 @@
+# =============================================================================
+# NON-NORMATIVE annotated reference skeleton for .plutus/manifest.yaml
+#
+# Purpose  : Illustrate every field — required and optional — with concise
+#            inline annotations.  The skeleton below validates against the schema
+#            as-is, but the values are placeholders — replace ALL_CAPS identifiers,
+#            names, paths and numbers with your project's real values before use.
+#
+# Normative contract  : README §1.1 of this repository.
+# Authoritative schema: plutus_verify/spec/schema.py in the plutus-verify pkg.
+#
+# How to use
+#   1. Copy this file to .plutus/manifest.yaml in your project repo.
+#   2. Replace every placeholder and delete (or uncomment) the alternative
+#      data_sources stanzas that match your data tier (Tier 1, 2, or 3).
+#   3. Delete these header comments and all inline annotation comments once
+#      the file is adapted — they are not required at runtime.
+#   4. Run `plutus check` to validate; a clean exit means you are compliant.
+# =============================================================================
+
+# ── Required ──────────────────────────────────────────────────────────────────
+
+schema_version: "2.0"   # MUST be exactly the string "2.0" (a JSON Schema const)
+
+repo:
+  name: MY_STRATEGY                # free-form string; used in reports
+  primary_language: python         # free-form string; conventional: python, r, julia
+
+# ── Environment ───────────────────────────────────────────────────────────────
+
+env:
+  base: python                     # REQUIRED — enum: python | python-cuda | none
+  python_version: "3.11"           # REQUIRED — e.g. "3.11", "3.13"
+  requirements_file: requirements.txt   # optional (string|null); path to
+                                        # requirements.txt or pyproject.toml
+  os_packages: []                  # optional; extra apt packages, e.g. [libta-lib-dev]
+  # gpu_required: false            # optional boolean; default false — uncomment for GPU workloads
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+# Required key, may be [].  Each entry: {key (required), purpose, used_by}.
+# used_by lists step ids that need the secret injected as an env var.
+# Cross-field invariant: every id in used_by MUST exist in steps[].id
+# (exception: ids starting with "data_sources." are exempt — see README §1.1).
+#
+# Tier 1 (no secrets needed):
+secrets: []
+#
+# Tier 3 / DB-backed example (uncomment and adapt):
+# secrets:
+#   - key: HOST
+#     purpose: Database host
+#     used_by: [data_collection, in_sample_backtest, out_of_sample_backtest]
+#   - key: PORT
+#     purpose: Database port
+#     used_by: [data_collection, in_sample_backtest, out_of_sample_backtest]
+#   - key: DATABASE
+#     purpose: Database name
+#     used_by: [data_collection, in_sample_backtest, out_of_sample_backtest]
+#   - key: USER_DB
+#     purpose: Database user
+#     used_by: [data_collection, in_sample_backtest, out_of_sample_backtest]
+#   - key: PASSWORD
+#     purpose: Database password
+#     used_by: [data_collection, in_sample_backtest, out_of_sample_backtest]
+
+# ── Data sources ──────────────────────────────────────────────────────────────
+# Both arrays (processed, raw) are REQUIRED in the manifest root; write []
+# for whichever array your tier leaves empty — do not omit either key.
+#
+# The verifier resolves data in fall-through order: processed → raw → command.
+# See README §3.1 for the full semantics and §3.2 for the four data tiers.
+#
+# _DATA_SOURCE field shape (additionalProperties: false):
+#   kind             REQUIRED string   — known values: local | google_drive |
+#                                        github_release | http | s3 | manual
+#                                        (free-form; unknown values pass schema,
+#                                        fail at download time)
+#   url              REQUIRED string   — full URL for remote kinds; "." for local
+#   expected_layout  REQUIRED array    — relative paths the source must provide
+#   satisfies        REQUIRED array    — step ids this source satisfies (minItems: 1)
+#   secrets_required optional array    — secret keys required for authenticated access;
+#                                        should name keys declared in secrets[]
+#   label            optional string|null — human-readable label for dashboards
+
+# ── Tier 1 (default) — committed CSV data in-repo ─────────────────────────────
+# No download step needed; steps read committed files directly.
+# .gitignore MUST NOT exclude the committed data paths.
+data_sources:
+  processed:
+    - kind: local
+      url: .                        # repo root
+      expected_layout:
+        - data/is/prices.csv
+        - data/os/prices.csv
+      satisfies: [in_sample_backtest, out_of_sample_backtest]
+      # label: "Committed price data"   # optional human-readable label
+  raw: []
+
+# ── Tier 2 alternative — Drive / HTTP remote source ───────────────────────────
+# Uncomment and replace the Tier 1 block above with this when data is too large
+# to commit.  A data_collection step with a fallback command MUST also be added
+# to steps[].
+#
+# data_sources:
+#   processed: []
+#   raw:
+#     - kind: google_drive          # or: github_release | http | s3 | manual
+#       url: https://drive.google.com/drive/folders/<FOLDER_ID>
+#       expected_layout:
+#         - data/is/prices.csv
+#         - data/os/prices.csv
+#       satisfies: [data_collection]
+#       # secrets_required: [DRIVE_TOKEN]   # authenticated source — see Tier 3 secrets[] syntax above
+
+# ── Tier 3 alternative — DB-backed loader (both arrays empty) ─────────────────
+# Uncomment when data is fetched live from a database via secrets.  Both arrays
+# are empty; the data_collection step command is the only data path.
+# Declare DB credentials in secrets[] above and set network: bridge on the step.
+#
+# data_sources:
+#   processed: []
+#   raw: []
+
+# ── Steps ─────────────────────────────────────────────────────────────────────
+# At least one step is required (minItems: 1).
+# Cross-field invariants (see README §1.1):
+#   - Step ids must be unique.
+#   - Steps with id "data_collection" or "data_processing" MUST declare command.
+#   - depends_on ids, expected[].step_id, and data_sources[].satisfies ids must
+#     all refer to existing step ids.
+
+steps:
+
+  # ── Fully-annotated step — use as a copy-paste reference ──────────────────
+  - id: in_sample_backtest          # REQUIRED non-empty string; snake_case conventional
+    nine_step: step_4_in_sample     # REQUIRED — one of the canonical keys (see below)
+                                    # or null for a free-form step not mapped to the taxonomy.
+                                    # Canonical keys (7 phases of the nine-step process):
+                                    #   step_1_hypothesis      step_2_data_collection
+                                    #   step_3_data_processing step_4_in_sample
+                                    #   step_5_optimization    step_6_out_of_sample
+                                    #   step_7_paper_trading
+    required: true                  # REQUIRED boolean — when true, a non-zero exit fails
+                                    # `plutus check`; when false, the step is advisory only
+    label: "In-sample backtest"     # optional string|null — display name in reports
+    command: "python backtesting.py"  # conditional: REQUIRED when id is data_collection
+                                      # or data_processing; otherwise may be null
+    network: none                   # optional — enum: none (default) | bridge | host
+                                    # Use bridge when the step or an imported module needs
+                                    # outbound network access (e.g. DB connection at import)
+    verification_mode: execute      # optional — enum: execute (default) | artifact_check
+                                    # execute: runs command and compares results.json output
+                                    # artifact_check: skips execution, only checks declared
+                                    #                 output files exist (useful for
+                                    #                 optimization steps; see Tier 1 template)
+    timeout_seconds: 1800           # optional integer ≥ 1; verifier default if omitted: 1800
+                                    # (30 minutes), applied by the loader
+    inputs: []                      # optional array — RECOMMENDED default: []
+                                    # WARNING (G12, README §1.1): when non-empty this is a
+                                    # COMPLETE-COVERAGE allowlist, not just data inputs.
+                                    # Every file the step needs — including its own script —
+                                    # must be listed, or the container will see "No such file."
+                                    # [] falls back to the full repo tree filtered by
+                                    # .dockerignore; tighten step-by-step after confirming
+                                    # the manifest works at the looser setting.
+    outputs:
+      - result/backtest/metrics.json
+      - result/backtest/hpr.svg
+      - result/backtest/drawdown.svg
+    depends_on: []                  # optional array of step ids; declares topological order
+
+  # ── Lean step — out-of-sample backtest ────────────────────────────────────
+  - id: out_of_sample_backtest
+    nine_step: step_6_out_of_sample
+    required: true
+    command: "python evaluation.py"
+    inputs: []                      # recommended default
+    outputs:
+      - result/oos/metrics.json
+      - result/oos/hpr.svg
+    depends_on: [in_sample_backtest]
+
+  # ── Lean step — optimization (artifact_check pattern) ─────────────────────
+  - id: optimization
+    nine_step: step_5_optimization
+    required: true
+    verification_mode: artifact_check   # skips execution; only verifies outputs exist
+    inputs:
+      - parameter/optimization_parameter.json
+    outputs:
+      - parameter/optimized_parameter.json
+    depends_on: [in_sample_backtest]
+
+  # ── Lean step — repo-specific step outside the canonical nine-step taxonomy ─
+  # Repo-specific step that fits no canonical key (README §2.3):
+  # - id: train_model
+  #   nine_step: null          # not one of the 7 canonical keys
+  #   label: "ML model training"
+  #   required: false
+  #   command: "python train.py"
+
+# ── Expected outcomes ─────────────────────────────────────────────────────────
+# Each entry refers to a step_id declared above.  A step_id with no entry here
+# has no numeric or artifact assertions — the verifier only checks it exits 0.
+# Cross-field invariant: step_id MUST match an existing step id.
+
+expected:
+  - step_id: in_sample_backtest     # MUST match a step id declared above
+    metrics:
+      - name: sharpe_ratio          # snake_case; MUST match ^[a-z][a-z0-9_]*$
+        display_name: Sharpe Ratio  # optional; shown in reports
+        value: 0.85                 # claimed value from the strategy README
+        tolerance:
+          kind: relative            # REQUIRED — enum: relative | absolute | exact
+                                    # relative: pass if |actual − value| / |value| ≤ tolerance.value
+                                    # absolute: pass if |actual − value| ≤ tolerance.value
+                                    # exact:    pass if actual == value (value field ignored
+                                    #           by the verifier; set to 0)
+          value: 0.05               # REQUIRED non-negative number; interpretation
+                                    # depends on kind (5 % relative tolerance here)
+      # Additional tolerance examples (show only one kind in the live entry):
+      # - name: annual_return
+      #   value: 0.24
+      #   tolerance: {kind: absolute, value: 0.01}   # ± 0.01 absolute
+      # - name: win_rate
+      #   value: 0.62
+      #   tolerance: {kind: exact, value: 0}          # exact match; value field ignored
+    artifacts:
+      # _ARTIFACT shape (additionalProperties: false):
+      #   path      REQUIRED string  — relative path of the output file
+      #   compare   REQUIRED string  — enum: json_numeric_tolerance |
+      #                                       visual_similarity | byte_exact
+      #   threshold optional number|null — interpretation depends on compare mode
+      - path: result/backtest/hpr.svg
+        compare: visual_similarity  # non-blocking SKIP without --visual-check flag
+        threshold: 0.95             # optional; similarity threshold (0–1); null uses default
+      - path: result/backtest/metrics.json
+        compare: json_numeric_tolerance
+        # threshold: null           # optional; uses verifier default when null or omitted
+
+  - step_id: out_of_sample_backtest
+    metrics:
+      - name: sharpe_ratio
+        value: 0.73
+        tolerance: {kind: relative, value: 0.05}
+    artifacts:
+      - path: result/oos/hpr.svg
+        compare: visual_similarity
+
+# ── Nine-step coverage (optional) ─────────────────────────────────────────────
+# Documents which canonical nine-step phases the strategy README covers.
+# Used by the plutus-scoring rubric (§5); omitting this block is valid but costs
+# rubric points.  Keys not listed here make no coverage claim.
+# Each entry: {present (required boolean), section (optional string|null)}
+nine_step_coverage:
+  step_1_hypothesis:       {present: true,  section: "Hypothesis"}
+  step_2_data_collection:  {present: true,  section: "Data Collection"}
+  step_3_data_processing:  {present: false, section: null}
+  step_4_in_sample:        {present: true,  section: "In-sample Backtesting"}
+  step_5_optimization:     {present: true,  section: "Optimization"}
+  step_6_out_of_sample:    {present: true,  section: "Out-of-sample Backtesting"}
+  step_7_paper_trading:    {present: false, section: null}
