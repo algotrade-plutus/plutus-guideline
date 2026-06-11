@@ -1028,7 +1028,95 @@ A final report or paper is **optional** but strongly encouraged. When present:
 
 # 7  Recommended workflow & tooling (non-normative)
 
-<!-- TODO(T11) -->
+> **Non-normative.** Compliance is defined entirely by the two contracts in §1: a valid `.plutus/manifest.yaml` (§1.1) and a passing `plutus check` exit code (§1.2). This section documents the recommended convenience path using the `plutus-verify` package (≥ 0.2.10, the version this standard targets; steps below reflect the actual subcommand set in `plutus-verify` 0.2.10). Any workflow that produces a conforming manifest and a green `plutus check` satisfies the standard; the specific commands below are suggestions, not requirements.
+
+Install `plutus-verify` (≥ 0.2.10, the version this standard targets; see Appendix A for the version table):
+
+```bash
+pip install plutus-verify
+```
+
+## 7.1  Recommended author workflow
+
+Run the steps below in order on a fresh repo.
+
+1. **Scaffold with `plutus init`.**
+
+   ```bash
+   plutus init [REPO_PATH]
+   ```
+
+   Generates three files: `.plutus/manifest.yaml` (a manifest skeleton with every required field present and `TODO` placeholders), `.github/workflows/plutus.yml` (a minimal CI workflow that runs `plutus check` on every push and pull request — satisfies §6.2.5), and `.plutus/example_script.py` (an annotated illustration of SDK instrumentation). Use `--force` to overwrite an existing manifest or workflow.
+
+   The [templates/manifest.yaml](templates/manifest.yaml) in this repository is the fully annotated reference skeleton; it covers every field — required and optional — with inline comments. It is the best starting point when you want more guidance than `plutus init` provides.
+
+2. **Instrument your scripts with the SDK.**
+
+   Add `pv.step(...)` blocks to each metric-emitting script (§1.2 — the SDK contract). Keep instrumentation additive: append the `with pv.step(...) as r:` block at the end of `if __name__ == "__main__"`, never modifying existing lines. Cast every metric value to `float(...)` (see G6 in §7.3).
+
+3. **Run your scripts to produce `.plutus/run/<step_id>/results.json`**, then generate a manifest draft from the captured output:
+
+   ```bash
+   plutus bootstrap [REPO_PATH]
+   ```
+
+   `bootstrap` reads `.plutus/run/` (produced by your instrumented scripts) and auto-fills roughly 70% of `manifest.yaml.draft`, leaving `TODO_*` sentinels on fields that require domain knowledge, with a companion `manifest_TODO.md` explaining each sentinel. Edit the draft, fill the sentinels, then rename it to `manifest.yaml`.
+
+   Alternatively, if your repo has a legacy README-based description, `plutus transfer` uses an LLM to extract a v2 draft manifest from the README:
+
+   ```bash
+   plutus transfer [REPO_PATH] [--llm-endpoint URL] [--llm-model MODEL]
+   ```
+
+   `transfer` produces `.plutus/manifest.yaml.draft` and `.plutus/instrument_TODO.md` — a checklist of scripts that still need SDK instrumentation. It uses four LLM calls and requires an OpenAI-compatible endpoint.
+
+4. **Capture baselines with `plutus snapshot`.**
+
+   After running your instrumented scripts locally, snapshot the outputs into `.plutus/expected/` so `plutus check` has a baseline to compare against:
+
+   ```bash
+   plutus snapshot [REPO_PATH] --no-run
+   ```
+
+   `snapshot` copies step output files into `.plutus/expected/<step_id>/` and fills `expected.metrics[].value` into `manifest.yaml` from the current run. Use `--no-artifacts` or `--no-metrics` to copy only one of the two. Currently `--no-run` is required — omitting it exits with an error (auto-run before snapshot is not yet wired in 0.2.10).
+
+5. **Verify locally with `plutus check`.**
+
+   ```bash
+   plutus check . --secrets-from-env
+   ```
+
+   Runs the v2 pipeline locally against your working copy (§4). Builds a Docker image, executes each step in isolation, compares outputs to `.plutus/expected/`, and exits 0 on full pass. `--secrets-from-env` forwards the current shell environment into the container for any secrets declared in the manifest's `secrets[]` block. See §4 for the full check semantics and G3 in §7.3 if `.env` sourcing causes shell parse errors.
+
+## 7.2  Automation skills
+
+Two Claude Code skills provide AI-assisted paths for common workflows.
+
+**`plutus-transform`** is an end-to-end v1→v2 migration skill. It runs four sequential phases (Survey → Decide → Instrument → Verify), anchored on `plutus check` exiting 0 with all README-claimed metrics matching script output within declared tolerance. Phase 2 is the only interactive phase; the rest run to completion unless a hard error appears. After a clean transform, the skill automatically chains into `plutus-scoring` for the compliance score and re-run command.
+
+**`plutus-scoring`** applies the 50/25/10/15 compliance rubric (§5) to any v2-compliant repo and emits three outputs: per-bucket scores with one-line reasoning, ranked improvement paths (concrete file/line/change, cheapest wins first), and a copy-pasteable re-run command the maintainer can use any time. It is standalone-invokable — no transform required.
+
+Invoke either skill via the Skill tool in Claude Code, or via `/plutus-transform` and `/plutus-scoring` slash commands.
+
+## 7.3  Troubleshooting catalogue
+
+The table below lists known failure patterns. Detailed **Symptom → Diagnosis → Fix** entries live in the `plutus-transform` skill's reference file at `skills/plutus-transform/references/known-gotchas.md` in the `plutus-automation-scoring` repository.
+
+| ID | Title | Version applicability |
+|----|---------------------------------------------------------|-----------------------|
+| G1 | Module-level DB connection forces network/secret routing | All versions — current |
+| G2 | Internally-conflicting dependency file | All versions — current |
+| G3 | `.env` placeholders crash shell sourcing | All versions — current |
+| G4 | `visual_similarity` artifacts silently failed | **Historical** — fixed in 0.2.6; not present on ≥ 0.2.6 |
+| G5 | Container stderr/stdout swallowed | **Historical** — fixed in 0.2.6; not present on ≥ 0.2.6 |
+| G6 | SDK rejects `Decimal` metric values | All versions — current |
+| G7 | Chart baseline captured after smoke-run is tautological | All versions — current |
+| G11 | Runtime volume mount bypasses `.dockerignore` | **Historical** — v0.2.9 only; fixed in 0.2.10 |
+| G12 | All execution steps FAIL exit=2 after declaring `step.inputs` | v0.2.10+ — current behavior |
+
+Authors on `plutus-verify` ≥ 0.2.10 can ignore G4, G5, and G11 — they describe bugs in earlier releases. G12 is the most common pitfall on the current release: when `step.inputs` is non-empty it is a complete-coverage allowlist, so the step's own script must be listed or the container will exit 2 with "No such file or directory." The recommended default is `inputs: []` on every step; tighten step-by-step after confirming a working baseline (see §1.1 and [templates/manifest.yaml](templates/manifest.yaml)). G7 is the subtlest active pitfall: capture chart baselines from a real run before any smoke-run overwrites them, or the comparison becomes tautological.
+
+> **Version note.** This standard corresponds to `plutus-verify` ≥ 0.2.10. See Appendix A for the full version table and the changelog of normative behavior changes across minor releases.
 
 ---
 
