@@ -435,7 +435,188 @@ no coverage claim. See §4 for how the verifier uses this block at runtime.
 
 # 3  Data tiers
 
-<!-- TODO(T6) -->
+V1's data guidance amounted to "put data on Google Drive." V2 replaces that with
+a structured model: a repository declares how it provisions data in the manifest's
+`data_sources` block, and the runtime resolves data automatically before executing
+pipeline steps. This section defines the four recognised provisioning patterns
+(informally called tiers), explains the `processed`-before-`raw` fall-through
+semantics, and documents the `_DATA_SOURCE` field shape.
+
+For ALGOTRADE-provided datasets see [data/DATA.md](data/DATA.md). For a
+description of individual data fields see
+[data/data-field-description.md](data/data-field-description.md). How the
+verifier uses `data_sources` during execution is described in §4.
+
+---
+
+## 3.1  The `processed`→`raw`→`command` fall-through
+
+`data_sources` has two required arrays: **`processed`** and **`raw`**. The
+native runtime resolver tries them in this order for every step listed in a
+source's `satisfies` array:
+
+1. **`processed` first.** If a `processed` entry satisfies the step, the
+   resolver checks whether its `expected_layout` files are already present in
+   the repo. If so, it uses those files and skips any download or command for
+   that step; if not, it attempts to download them. Only when no `processed`
+   source can satisfy the step does the resolver proceed to `raw`.
+2. **`raw` next.** If no `processed` source satisfies the step, the resolver
+   checks `raw`. A `raw` source requires downloading or processing before it can
+   be used.
+3. **`command` fallback.** If neither array provides a usable source — or if the
+   download is unreachable — the resolver runs the step's declared `command`. This
+   is why any step with `id: data_collection` or `id: data_processing` MUST carry
+   a non-empty `command` (see the cross-field invariant in §1.1): the command is
+   the unconditional fallback, not an optional extra.
+
+Both arrays are always required in the manifest root; an array with no entries is
+written as `[]`, not omitted.
+
+---
+
+## 3.2  The four data-provisioning tiers
+
+The tiers are an informal vocabulary; they are not named in the schema. They are
+expressed by the combination of `processed`-vs-`raw`, the `kind` value, and
+(for Tiers 3 and 4) declared secrets; Tier 4 additionally carries a remote `raw` entry.
+
+### Tier 1 — Committed CSV (data in-repo)
+
+**What it is.** Data files are small enough to commit to the repository (typically
+under 50 MB total). No download step is needed; pipeline steps read the committed
+files directly.
+
+**Manifest shape.** `data_sources.processed` carries a single entry with
+`kind: local` and `url: .` (the repo root). `data_sources.raw` is `[]`. The
+`data_collection` step is typically omitted entirely — backtest steps depend on
+each other instead.
+
+```yaml
+data_sources:
+  processed:
+    - kind: local
+      url: .
+      expected_layout:
+        - data/is/prices.csv
+        - data/os/prices.csv
+      satisfies: [in_sample, out_of_sample]   # must match steps[].id — see §1.1 invariant 5
+  raw: []
+```
+
+> Note: `.gitignore` MUST NOT exclude the committed data paths.
+
+---
+
+### Tier 2 — Drive / GitHub release (declared remote source)
+
+**What it is.** Data is hosted externally (Google Drive folder, GitHub release
+asset, plain HTTP download, or S3 bucket) and declared in `data_sources.raw`.
+The verifier downloads the source before running the step. A `data_collection`
+step MUST still be declared with a fallback `command` for use when the remote
+source is unreachable.
+
+**Manifest shape.** `data_sources.processed` is `[]`; `data_sources.raw` carries
+the remote source. `kind` is one of the known values: `google_drive`,
+`github_release`, `http`, `s3`, or `manual`. For authenticated sources add
+`secrets_required` to the entry and route the secret key through `secrets[].used_by`.
+
+```yaml
+data_sources:
+  processed: []
+  raw:
+    - kind: google_drive
+      url: https://drive.google.com/drive/folders/<ID>
+      expected_layout:
+        - data/is/prices.csv
+        - data/os/prices.csv
+      satisfies: [data_collection]
+      # secrets_required: [DRIVE_TOKEN]   # authenticated sources only — see Tier 3 secrets[] syntax
+
+steps:
+  - id: data_collection
+    nine_step: step_2_data_collection    # canonical key — see §2
+    required: true
+    network: bridge
+    timeout_seconds: 1800
+    command: "python data_loader.py"   # fallback if the Drive source is unreachable
+```
+
+The ALGOTRADE-provided Backtest Data Suite and sample-project datasets hosted on
+Google Drive are Tier 2 raw sources (see [data/DATA.md](data/DATA.md)).
+
+---
+
+### Tier 3 — Database (live query via secrets)
+
+**What it is.** A `data_collection` step connects to a database at runtime using
+credentials injected as secrets. Both `data_sources` arrays are empty. The step
+MUST use `network: bridge` so the container can reach the database host. Backtest
+steps that import a module which opens a database connection at import time also
+need `network: bridge` (see the G1 gotcha in §7).
+
+**Manifest shape.** `data_sources.processed` and `raw` are both `[]`. Secrets
+carry the connection credentials; their `used_by` arrays list every step that
+touches the database layer.
+
+```yaml
+secrets:
+  - key: HOST
+    purpose: Database host
+    used_by: [data_collection, in_sample_backtest, out_of_sample_backtest]
+  - key: PASSWORD
+    purpose: Database password
+    used_by: [data_collection, in_sample_backtest, out_of_sample_backtest]
+
+data_sources:
+  processed: []
+  raw: []
+
+steps:
+  - id: data_collection
+    nine_step: step_2_data_collection
+    required: true
+    network: bridge
+    timeout_seconds: 1800
+    command: "python data_loader.py"
+```
+
+---
+
+### Tier 4 — Layered (Drive primary + DB fallback)
+
+**What it is.** A `data_sources.raw` entry provides a Drive (or HTTP) source as
+the primary path; if that download fails, the `data_collection` command falls
+back to a live database query. Both a remote `raw` entry and database secrets are
+present simultaneously.
+
+This is the most complex pattern and carries the highest authoring risk: secrets
+must cover both the download-path steps and the live-query fallback, and the
+`expected_layout` of the remote source must exactly match the file paths the DB
+query would produce. **First-time authors should start with Tier 2 or Tier 3 and
+upgrade to Tier 4 only when both paths are confirmed independently working.**
+
+---
+
+## 3.3  `_DATA_SOURCE` field reference
+
+Each entry in `data_sources.processed[]` or `data_sources.raw[]` MUST conform to
+the following shape. All keys listed here and no others are accepted
+(`additionalProperties: false`). Cross-references: the `satisfies` step IDs must
+resolve against declared steps (§1.1 invariant 5); `secrets_required` key names
+must match entries in the top-level `secrets` array (§1.1).
+
+| Field | Required | Type | Notes |
+|-------|----------|------|-------|
+| `kind` | MUST | string | Backing-store identifier — free-form string; known values: `local`, `google_drive`, `github_release`, `http`, `s3`, `manual` (conventional label for human-provisioned data; no downloader is invoked) |
+| `url` | MUST | string | Full URL for remote kinds (`google_drive`, `github_release`, `http`, `s3`); for `kind: local` use `.` (repo root) |
+| `expected_layout` | MUST | array of strings | Glob patterns the downloaded/committed files must satisfy |
+| `satisfies` | MUST | array of strings (`minItems: 1`) | Step IDs whose data requirement this source satisfies |
+| `secrets_required` | optional | array of strings | Secret keys required to access this source; must match top-level `secrets[].key` values |
+| `label` | optional | string \| null | Human-readable label for reports and dashboards |
+
+> **Note on `kind`:** the JSON Schema validates `kind` as a free-form string with
+> no enum constraint. The values listed above are conventional; typos pass schema
+> validation and will only surface as a runtime download failure.
 
 ---
 
