@@ -429,7 +429,8 @@ nine_step_coverage:
 ```
 
 Any subset of the seven canonical keys may appear; keys that are omitted imply
-no coverage claim. See §4 for how the verifier uses this block at runtime.
+no coverage claim. The verifier validates this block's shape but does not gate
+exit codes on it; it serves scoring and documentation purposes — see §5.
 
 ---
 
@@ -622,7 +623,157 @@ must match entries in the top-level `secrets` array (§1.1).
 
 # 4  Verification — the `plutus check` contract (exit codes)
 
-<!-- TODO(T8) -->
+`plutus check` is the normative verification command. Its exit code is the
+machine-readable definition of "reproduced." Every other verdict in this
+standard — the scoring rubric in §5, CI badge status, the Reproducible bucket
+score — derives from this single contract.
+
+---
+
+## 4.1  Invocation
+
+**Docker is the runtime prerequisite.** The verifier builds the environment
+declared in `env` (§1.1) into a container image from a generated
+`Dockerfile` and runs each pipeline step inside that container. A working
+Docker daemon MUST be present on the host.
+
+```
+plutus check [REPO_PATH] [--secrets-from-env] [--data-tier {processed|raw|code|auto}] [--visual-check]
+```
+
+The minimal author-side invocation for a repo that uses environment secrets:
+
+```
+plutus check . --secrets-from-env
+```
+
+`--secrets-from-env` passes the caller's entire `os.environ` as secrets into
+the container, satisfying every declared `secrets[].key` without a
+secrets-management backend. `REPO_PATH` defaults to `.`; `--data-tier`
+defaults to `auto` (processed → raw → command fall-through per §3).
+When `--visual-check` is omitted, `visual_similarity` comparisons fall back
+to byte comparison: bytes identical → `ok` (passes normally); bytes differ →
+`WARN` (ok=False, skipped=True), which is non-blocking (see §4.4).
+
+> **WARNING — stale run artifacts.** `plutus check` wipes `.plutus/run/`
+> at the start of each invocation. Files left by a prior run are never
+> consulted; comparisons always reflect what the current run produced.
+
+---
+
+## 4.2  The exit-code contract
+
+This table is the normative definition of "reproduced":
+
+| Exit code | Meaning | Condition |
+|-----------|---------|-----------|
+| **0** | All required steps executed cleanly AND all metric and artifact comparisons passed | Every required step exited 0 (no preflight error, not a hard execution failure), AND every metric comparison `ok`, AND every artifact comparison either `ok` or `skipped` |
+| **1** | All required steps ran, but ≥ 1 comparison failed — including comparisons declared for optional steps (soft fail). | No required step hard-failed, but at least one metric returned `ok=False`, or at least one artifact returned `ok=False` and `skipped=False` |
+| **2** | A required step failed execution, or a preflight / manifest-load error occurred | At least one required step exited non-zero (with no `skipped_reason`) OR has a `preflight_error`, OR manifest loading failed, OR the Docker image build failed |
+
+**`required: true` gates exit 2** (§1.1): only a required step whose
+execution hard-fails (non-zero exit, no `skipped_reason`) or whose preflight
+check fails can push the exit code to 2. Exit 0 is the bar for the full
+"reproducible" claim (see §5 Reproducible bucket for scoring implications).
+
+**Exit 1 considers ALL declared comparisons**, including those belonging to
+optional (`required: false`) steps. The `_exit_code` function in
+`plutus_verify/scaffold/check.py` iterates `runtime.metric_results` and
+`runtime.artifact_results` without filtering by `required`. A failed
+comparison on an optional step will cause exit 1.
+
+**Skipped steps are non-blocking for exit 2.** `skipped_reason` is a runtime field, not a manifest key; the verifier sets it when a step's work is satisfied without executing its command (e.g. because a data source already provides the required files — the value is `"satisfied_by_data_source"`). A step that records a
+`skipped_reason` is not counted as a hard execution failure even if it is
+marked `required`: `_exit_code` guards the exit-2 branch with
+`sr.skipped_reason is None`. However, skipping does not suppress comparisons:
+`_compare_metrics` in `plutus_verify/spec/runtime/orchestrator.py` does not
+check `skipped_reason`. A skipped step produces no `results.json`; the
+missing file triggers `MissingResultsError`, which returns `ok=False` for
+every declared expected metric — contributing to exit 1. Authors SHOULD NOT
+declare `expected.metrics` for steps that may be skipped (for example, a
+`data_collection` step satisfied by a data source), because the absent
+`results.json` will fail those comparisons.
+
+The four-state status vocabulary used throughout this section:
+
+| Status | ok | skipped | Meaning |
+|--------|----|---------|---------|
+| `ok` | True | False | Verified pass |
+| `SKIP` | True | True | Not verified; no evidence of issue |
+| `WARN` | False | True | Divergence detected but inconclusive (non-blocking) |
+| `FAIL` | False | False | Verified divergence (blocks exit 0) |
+
+---
+
+## 4.3  Metric comparison semantics
+
+Metrics are read from `.plutus/run/<step_id>/results.json` (§1.2) and
+matched **by name** against `expected[].metrics[]` in the manifest. The
+comparison is deterministic — no LLM involved; the `locate` directives used
+by pre-v2 tooling do not appear in v2 manifests.
+
+Each metric declares a `tolerance` block with a `kind` and `value`. Three
+kinds are recognised, implemented in `_within_tolerance()` in
+`plutus_verify/spec/runtime/orchestrator.py`:
+
+| Kind | Formula | Implementation notes |
+|------|---------|----------------------|
+| `exact` | `actual == expected` | Plain numeric equality — no float fuzz. Recommended only for integer metrics; use `absolute` or `relative` for floating-point metrics because exact equality on floats is brittle across environments. |
+| `absolute` | `|actual − expected| ≤ value` | Symmetric; units must match |
+| `relative` | `|actual − expected| / |expected| ≤ value` | When `expected == 0` the check degrades to `|actual| ≤ value` (divide-by-zero is avoided by comparing the actual value against the tolerance bound directly) |
+
+Both the manifest's `expected.metrics[].value` (§1.1) and the metric values in
+`results.json` (§1.2) are typed `number` by their schemas, so in a conforming
+repository every metric comparison is numeric.
+
+A metric comparison that cannot locate the actual value (e.g. file missing)
+is recorded as `ok=False` and contributes to exit 1.
+
+---
+
+## 4.4  Artifact comparison semantics
+
+Artifacts are matched **by path** against `expected[].artifacts[]` in the
+manifest. Three compare modes are supported, implemented in
+`plutus_verify/spec/runtime/artifact_compare.py`:
+
+| Mode | Behaviour | Missing baseline | Missing produced file |
+|------|-----------|-----------------|----------------------|
+| `byte_exact` | File bytes must be identical | `FAIL` (ok=False, skipped=False) | `FAIL` |
+| `json_numeric_tolerance` | Deep-walk JSON; numeric values within relative tolerance (default 5%); non-numeric must be byte-equal. When `expected == 0`, degrades to absolute: `|produced| ≤ tol` | `FAIL` | `FAIL` |
+| `visual_similarity` | LLM vision comparison at declared `threshold` (default 0.7) | **SKIP** (ok=True, skipped=True) — no reference yet; run `plutus snapshot` to enable | `FAIL` (ok=False, skipped=False) |
+
+**`visual_similarity` without `--visual-check`.** When no vision client is
+wired (the default), the verifier falls back to a byte comparison: bytes
+identical → `ok` (passes normally); bytes differ → **WARN** (ok=False,
+skipped=True). A WARN is non-blocking and does not contribute to exit 1
+because `skipped=True` exempts it from the exit-code check.
+
+---
+
+## 4.5  What a green run looks like
+
+A passing run (`plutus check . --secrets-from-env` → exit 0) prints a report
+structured by the 9-step framework. A green run has no `FAIL` lines. Each
+required step shows:
+
+```
+  ok <step_id>: exit=0
+      ok <metric_name>: actual=<v> expected=<v>
+      ok <compare_mode> <artifact_path>   # <compare_mode>: byte_exact | json_numeric_tolerance | visual_similarity | byte_identical
+                                          # or SKIP / WARN — both non-blocking
+```
+
+Optional steps (`required: false`) and their comparisons appear in the same
+format; a `FAIL` from an optional comparison still causes exit 1.
+
+Any `FAIL` line in the report — whether from a metric, an artifact, or a
+step execution — means the run exited 1 or 2. Exit 0 with no `FAIL` lines
+is the definition of a reproduced result.
+
+Back-references: `required` and `expected` fields → §1.1; `results.json`
+schema → §1.2; data resolution (processed → raw → command) → §3. Forward
+reference: how exit-code outcomes map to compliance scores → §5.
 
 ---
 
