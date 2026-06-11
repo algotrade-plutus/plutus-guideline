@@ -335,7 +335,101 @@ modes, and the exit-code contract — is defined in §4.
 
 # 2  The 9-step taxonomy → manifest steps
 
-<!-- TODO(T5) -->
+## 2.1  Lineage — V1 README sections → V2 manifest keys
+
+The ALGOTRADE 9-step trading-research process is the conceptual lineage that V1
+formalised as required README sections. V2 carries those same seven steps forward
+as a fixed set of canonical `nine_step` values that every manifest step can
+declare. The table below is the authoritative mapping. The key strings are defined in
+`plutus_verify/constants.py`; authors MUST copy them exactly (e.g.
+`step_4_in_sample`, not `step_4_insample`).
+
+| `nine_step` key | 9-step process | V1 README section |
+|---|---|---|
+| `step_1_hypothesis` | Step 1: Hypothesis formulation | `Trading (Algorithm) Hypotheses` |
+| `step_2_data_collection` | Step 2: Data collection | `Data Collection` |
+| `step_3_data_processing` | Step 3: Data processing | `Data Processing` |
+| `step_4_in_sample` | Step 4: In-sample backtesting | `In-sample Backtesting` |
+| `step_5_optimization` | Step 5: Optimization | `Optimization` |
+| `step_6_out_of_sample` | Step 6: Out-of-sample backtesting | `Out-of-sample Backtesting` |
+| `step_7_paper_trading` | Step 7: Paper trading | `Paper Trading` |
+
+Steps 8 and 9 of the 9-step process (live trading and continuous improvement)
+remain **out of scope** for `plutus check` verification. Reproducibility is expected through Step 6 (minimum) and
+Step 7 (ideal), as under V1.
+
+## 2.2  The fixed-frame / free-content boundary
+
+The V2 standard fixes the **frame** — the seven canonical key strings, the
+manifest field names, and the enums — not the **contents**. In particular:
+
+- The **number of steps** beyond the canonical seven is legitimately
+  repo-specific. A repository may declare additional steps (e.g. a feature
+  engineering stage, an ML model-training stage) without any of them mapping to
+  a canonical key.
+- **Metric names** and their values are entirely author-defined; the standard
+  does not prescribe what metrics a step must emit.
+
+> Note: section content inside the human README is the author's responsibility and is not validated by `plutus check` — see §6.
+
+## 2.3  Repo-specific steps (`nine_step: null`)
+
+When a pipeline step fits none of the seven canonical keys, set `nine_step: null`
+and provide a human-readable `label`. The `label` field is validated by the
+schema (`type: ["string", "null"]`); it is optional but strongly recommended
+whenever `nine_step` is `null` so that reports and dashboards can display a
+meaningful name.
+
+Example — an ML model-training step that precedes in-sample backtesting:
+
+```yaml
+steps:
+  - id: model_training
+    nine_step: null
+    label: "ML model training"
+    required: true
+    command: "python -m my_strategy.train"
+```
+
+See §1.1 for the full step schema.
+
+## 2.4  Steps outside the executable pipeline — `nine_step_coverage`
+
+Some canonical steps — most commonly `step_7_paper_trading` — exist in the repository as documented work but cannot be re-executed automatically. Paper trading is typically **not reproducibly executable** in a CI environment: live-broker connectivity, real-time feeds, and wall-clock time make automated re-execution impractical. Two patterns are supported:
+
+Two complementary patterns exist — they MAY be combined:
+
+1. **`verification_mode: artifact_check`** — declare the paper-trading step but
+   skip command execution; the verifier only checks that the declared output
+   files exist.
+2. **`nine_step_coverage` block** — document which canonical steps are covered
+   by the repository, without requiring those steps to appear as executable
+   manifest steps.
+
+Pattern 1 declares a manifest step that skips execution; Pattern 2 is a top-level declaration that needs no step at all.
+
+The optional top-level `nine_step_coverage` object is keyed by the canonical
+nine-step key strings. Each entry has exactly two keys:
+
+| Key | Required | Type | Notes |
+|-----|----------|------|-------|
+| `present` | MUST | boolean | Whether this step is present in the repository |
+| `section` | optional | string \| null | The README section that documents the step |
+
+Example:
+
+```yaml
+nine_step_coverage:
+  step_7_paper_trading:
+    present: true
+    section: "Paper Trading"
+  step_5_optimization:
+    present: false
+    section: null
+```
+
+Any subset of the seven canonical keys may appear; keys that are omitted imply
+no coverage claim. See §4 for how the verifier uses this block at runtime.
 
 ---
 
