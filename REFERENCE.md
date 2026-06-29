@@ -7,11 +7,14 @@
 > compliant, read the [GUIDE](GUIDE.md). This reference is the authority for the exact
 > rules those two documents summarize.
 >
-> **Targets `plutus-verify` 0.2.10** (manifest `schema_version: "2.0"`, results
-> `schema_version: "1.0"`). The authoritative schemas live in the `plutus-verify`
-> package (`plutus_verify/spec/schema.py` and `plutus_verify/sdk/schema.py`); any tool
-> that validates against them complies. Where this document and the code disagree, the
-> code wins — report the discrepancy.
+> **Targets `plutus-verify` 0.5.1** (manifest `schema_version: "2.0"`, results
+> `schema_version: "1.0"`). The schema versions are unchanged since 0.2.10, but the
+> nine-step taxonomy changed at 0.3.0 (see [§3](#3-the-nine-step-keys)) and the
+> `snapshot`/`check` data flow changed at 0.5.0 (see [§5](#5-the-plutus-check-contract)).
+> The authoritative schemas live in the `plutus-verify` package
+> (`plutus_verify/spec/schema.py` and `plutus_verify/sdk/schema.py`); any tool that
+> validates against them complies. Where this document and the code disagree, the code
+> wins — report the discrepancy.
 
 **Conventions used in every table below:**
 
@@ -69,8 +72,33 @@ value is accepted.
 | `base` | MUST | string enum | One of `python`, `python-cuda`, `none` |
 | `python_version` | MUST | string | e.g. `"3.11"` |
 | `requirements_file` | optional | string \| null | Path to `requirements.txt` or `pyproject.toml`; `null` if none |
+| `manager` | optional | string enum | `uv` or `pip` (default `pip`). See note below |
+| `lockfile` | optional | string \| null | Path to the committed lockfile (e.g. `uv.lock`). Required when `manager: uv` (invariant 7) |
+| `install_project` | optional | boolean | Default `false`. Installs the repo's *own* package into the image. uv-only (invariant 8). See note below |
 | `os_packages` | optional | array of strings | Extra `apt` packages to install |
 | `gpu_required` | optional | boolean | Default `false` |
+
+**Why `manager`/`lockfile` exist (reproducible environments, added 0.4.0).** `pip` with
+a loose `requirements.txt` resolves whatever versions exist at build time, so two builds
+weeks apart can install different package versions and produce different numbers — the
+opposite of reproducible. `manager: uv` + a committed `lockfile` pins every transitive
+dependency to an exact version, so the container is rebuilt identically every time. A
+`pip`/lockfile-less env is reported as `env: NOT reproducible` in `plutus check` output
+with a deprecation note; the exit code is **not** affected yet (warn-only). A locked env
+is also what makes `byte_exact` artifact comparison ([§5.4](#54-artifact-comparison))
+trustworthy — without it, byte-level drift is expected and you should prefer
+`json_numeric_tolerance` or `visual_similarity`.
+
+**Why `install_project` exists (installable-package repos, added 0.5.0).** By default the
+build installs only your *dependencies*; your own package isn't installed, so a step
+command like `pmm-backtest` (a console script) or `python -m your_package.…` fails with
+"command not found" / `ModuleNotFoundError`. Set `install_project: true` to also install
+the repo's package into the image. It is **uv-only** and requires a `pyproject.toml` at
+the repo root plus a committed lockfile (invariant 8). Dependencies stay in a cached
+build layer (`uv sync --frozen --no-install-project`); the project is installed last,
+after the source is copied, with `uv pip install --no-deps .` — a non-editable install
+into `/opt/venv` that survives the runtime bind-mount of `/srv/repo`. Default `false`
+means no behavior change for existing repos.
 
 ### 1.3 `secrets` entry
 
@@ -91,7 +119,7 @@ Each entry in `steps[]`:
 | `id` | MUST | — | Non-empty string; unique across all steps |
 | `nine_step` | MUST | — | One of the 7 canonical keys ([§3](#3-the-nine-step-keys)) or `null` for a free-form step |
 | `required` | MUST | — | Boolean; gates the exit code ([§5](#5-the-plutus-check-contract)) |
-| `command` | conditional | `null` | MUST be non-empty when the step `id` is `data_collection` or `data_processing` (invariant 2); otherwise may be `null` |
+| `command` | conditional | `null` | MUST be non-empty when the step `id` is `data_preparation` (invariant 2); otherwise may be `null` |
 | `label` | optional | `null` | Human-readable display name (`type: ["string","null"]`) |
 | `network` | optional | `"none"` | Enum: `none`, `bridge`, `host` |
 | `timeout_seconds` | optional | `1800` | Integer ≥ 1. The schema enforces only `minimum: 1`; the **30-minute default is applied by the loader** when the key is omitted |
@@ -99,6 +127,7 @@ Each entry in `steps[]`:
 | `outputs` | optional | `[]` | Paths copied back out of the container after the step |
 | `depends_on` | optional | `[]` | Step IDs; declares topological-sort ordering edges |
 | `verification_mode` | optional | `"execute"` | Enum: `execute` (runs `command`, compares results) or `artifact_check` (skips execution, only verifies declared output files exist) |
+| `sub_processes` | optional | `null` | Documentation-only breakdown of the data-preparation step into `collection` + `processing` slots. Only valid on the step whose `nine_step` is `step_2_data_preparation` (invariant 9). Never executed. See [§3](#3-the-nine-step-keys) |
 
 > **`inputs` is a complete-coverage allowlist (gotcha G12).** When non-empty, `inputs`
 > is **not** a list of "data inputs" — it is the complete set of paths staged into the
@@ -160,11 +189,12 @@ Structural validation runs first; then these invariants MUST all hold. A violati
 fails `plutus check` before any step executes.
 
 1. **Unique step IDs** — no two steps share an `id`.
-2. **`data_collection` / `data_processing` steps MUST declare a non-empty `command`.**
-   Matched against the step's `id` (not its `nine_step`): any step whose `id` is
-   literally `"data_collection"` or `"data_processing"` carries this obligation, even
-   when a `data_sources` entry already provides a download URL (the command is the
-   fallback when the download path is unavailable).
+2. **The `data_preparation` step MUST declare a non-empty `command`.** Matched against
+   the step's `id` (not its `nine_step`): any step whose `id` is literally
+   `"data_preparation"` carries this obligation, even when a `data_sources` entry already
+   provides a download URL (the command is the fallback when the download path is
+   unavailable). *(Before 0.3.0 this rule keyed off the two ids `data_collection` /
+   `data_processing`; the v2025 taxonomy folded those into one — see [§3](#3-the-nine-step-keys).)*
 3. **`depends_on` references** — every ID in any `depends_on` array refers to an
    existing step ID.
 4. **`expected.step_id` references** — every `step_id` in `expected` refers to an
@@ -174,6 +204,12 @@ fails `plutus check` before any step executes.
 6. **`secrets.*.used_by` references** — every step ID in a secret's `used_by` refers to
    an existing step ID, except entries beginning with `"data_sources."` (a qualifier
    form for data-source-level usage), which are exempt.
+7. **`manager: uv` requires `lockfile`.** A uv-managed env with no committed lockfile is
+   rejected — uv can only build reproducibly from a lockfile.
+8. **`install_project: true` requires `manager: uv`** (and, transitively, a `lockfile`)
+   **plus a `pyproject.toml` at the repo root.** The validator errors clearly otherwise.
+9. **`sub_processes` is only valid on the data-preparation step** — declaring it on any
+   step whose `nine_step` is not `step_2_data_preparation` is rejected.
 
 ### 1.8 Data-source object (`_DATA_SOURCE`)
 
@@ -253,12 +289,27 @@ The canonical `nine_step` values. The strings are defined in
 | `nine_step` key | Stage |
 |-----------------|-------|
 | `step_1_hypothesis` | Hypothesis formulation |
-| `step_2_data_collection` | Data collection |
-| `step_3_data_processing` | Data processing |
+| `step_2_data_preparation` | Data preparation (collection **and** processing) |
+| `step_3_forming_set_of_rules` | Forming the set of rules |
 | `step_4_in_sample` | In-sample backtesting |
 | `step_5_optimization` | Optimization |
 | `step_6_out_of_sample` | Out-of-sample backtesting |
 | `step_7_paper_trading` | Paper trading |
+
+> **Taxonomy changed at 0.3.0 (v2025 nine-step process), breaking.** The 2025 revision of
+> the 9-step process collapsed *data collection* and *data processing* into one canonical
+> step, **data preparation**, and renamed the third step to *forming the set of rules*.
+> Concretely: `step_2_data_collection` → `step_2_data_preparation`, and
+> `step_3_data_processing` → `step_3_forming_set_of_rules`. This is a hard cutover — a
+> manifest using the old keys fails to load with `ManifestLoadError` (exit 2). The
+> manifest `schema_version` stayed `"2.0"`; only the `nine_step` enum values changed.
+
+**Documenting data preparation in detail.** Because one step now covers both collecting
+and processing data, the data-preparation step accepts an optional, documentation-only
+`sub_processes` block with two slots, `collection` and `processing` (each: a required
+`description`, plus optional `command`/`inputs`/`outputs`). It is never executed — it
+only records *what* the data preparation does for a reader — and is valid only on the
+step whose `nine_step` is `step_2_data_preparation` (invariant 9).
 
 **Fixed frame, free content.** The standard fixes the seven key strings, the manifest
 field names, and the enums — not the number of steps or their content. A repo may
@@ -287,9 +338,14 @@ a source's `satisfies` array, the native runtime resolver tries, in order:
 2. **`raw` next.** If no `processed` source satisfies the step, the resolver checks
    `raw`. A `raw` source requires downloading/processing before use.
 3. **`command` fallback.** If neither array provides a usable source — or the download is
-   unreachable — the resolver runs the step's declared `command`. This is why
-   `data_collection` / `data_processing` steps MUST carry a non-empty `command`
-   (invariant 2): the command is the unconditional fallback.
+   unreachable — the resolver runs the step's declared `command`. This is why the
+   `data_preparation` step MUST carry a non-empty `command` (invariant 2): the command is
+   the unconditional fallback.
+
+> **Where downloads land (0.5.0).** Fetched data sources are cached in the gitignored
+> `.plutus/cache/`, not your working tree, and overlaid into each step's sandbox. Caching
+> persists across runs; the working tree stays clean. Presence checks consider both
+> committed data and the cache.
 
 Both arrays are always required; an empty array is written `[]`, not omitted.
 
@@ -298,9 +354,9 @@ the above:
 
 | Tier | Shape |
 |------|-------|
-| **1 — Committed** | `processed` has one `kind: local`, `url: .` entry; `raw: []`. `data_collection` step typically omitted |
-| **2 — Remote** | `processed: []`; `raw` carries a remote source (`google_drive`/`github_release`/`http`/`s3`/`manual`); a `data_collection` step with a fallback `command` is declared |
-| **3 — Database** | both arrays `[]`; a `data_collection` step queries a DB at runtime with `network: bridge` and credentials via `secrets[]` |
+| **1 — Committed** | `processed` has one `kind: local`, `url: .` entry; `raw: []`. `data_preparation` step typically omitted |
+| **2 — Remote** | `processed: []`; `raw` carries a remote source (`google_drive`/`github_release`/`http`/`s3`/`manual`); a `data_preparation` step with a fallback `command` is declared |
+| **3 — Database** | both arrays `[]`; a `data_preparation` step queries a DB at runtime with `network: bridge` and credentials via `secrets[]` |
 | **4 — Layered** | a remote `raw` entry (primary) plus DB secrets (fallback) simultaneously. Highest authoring risk; secrets must cover both paths and the remote `expected_layout` must match the DB query's output paths |
 
 `--data-tier` ([§7](#7-cli-reference)) can force a specific tier; default `auto` follows
@@ -316,8 +372,40 @@ Every other verdict (scoring, badge, CI status) derives from it.
 `plutus check` builds the `env` ([§1.2](#12-env-sub-keys)) into a Docker image from a
 generated `Dockerfile`, runs each step in dependency order inside the container, and
 compares produced `results.json` files against the manifest's `expected` blocks. **A
-working Docker daemon is required.** Each invocation wipes `.plutus/run/` at the start —
-files from a prior run are never consulted.
+working Docker daemon is required.**
+
+### 5.0 Bless vs. verify, and the read-only guarantee (0.5.0)
+
+`plutus` separates **blessing** a baseline (`snapshot`) from **verifying** against it
+(`check`). Both run the *identical* in-container pipeline; they differ only in the final
+move. The point of the split: a baseline should change only when you deliberately decide
+it should, never as an accidental side effect of running the check. So `check` is
+**read-only** — it never writes `.plutus/expected/` or any committed working-tree file.
+A forgotten `snapshot` is then caught (missing groundtruth → fail), and output drift from
+a code change you never re-blessed fails on purpose instead of silently overwriting the
+baseline.
+
+Three stores keep the roles separate:
+
+| Store | Role | Written by | Commit it? |
+|-------|------|-----------|------------|
+| `.plutus/expected/<step>/…` + `manifest.yaml` metric `value`s | frozen groundtruth | `snapshot` only | **yes** |
+| `result/…` (your declared output paths) | human-facing copy for the README | `snapshot` only | **yes** |
+| `.plutus/results/<step>/…` | per-run scratch + inter-step data bus | `snapshot` **and** `check` | **no — gitignore** |
+| `.plutus/cache/…` | fetched data sources | `snapshot` and `check` | **no — gitignore** |
+| `.plutus/run/<step>/…` | per-step bookkeeping + captured `stdout`/`stderr` | `snapshot` and `check` | **no — gitignore** |
+
+Because produced bytes land in the gitignored `.plutus/results/<step>/` (and are compared
+*there*), `check` leaves the working tree clean — safe in CI and pre-commit. Earlier
+steps reach later ones through that same buffer (the inter-step data bus), so a multi-step
+pipeline reproduces end-to-end without writing the working tree. A failing step's
+`stdout`/`stderr` persist to `.plutus/run/<step>/` and a stderr tail is printed in the
+report — no need to re-run the container by hand to recover a traceback.
+
+Because `snapshot` writes the groundtruth from the *container's* output (not the laptop's),
+`byte_exact` baselines now work for build-sensitive artifacts (charts, `*.parquet`,
+`model.pkl`) that a laptop baseline could never match — provided the env is locked
+([§1.2](#12-env-sub-keys)).
 
 ### 5.1 Exit codes
 
@@ -397,16 +485,26 @@ Any `FAIL` line — metric, artifact, or step execution — means exit 1 or 2.
 
 ## 6. Scoring rubric
 
-The compliance score is a single percentage from four weighted buckets, produced
-mechanically by the `plutus-scoring` routine. Inputs: the manifest, the scripts, the
-README, and the outcome of `plutus check`.
+The compliance score is a single percentage from four weighted buckets, produced by the
+read-only `plutus-scoring` skill. It inspects the manifest, the scripts, the README, and
+any `plutus check` output already present, then applies the rubric **by LLM judgment**. It
+does **not** run `plutus check` itself.
 
-| Bucket | Weight | Measures |
-|--------|-------:|----------|
-| Reproducible | 50 | `plutus check` exits 0; README-claimed metrics match script output within tolerance |
-| Tidy / well-documented | 25 | README structure, install hygiene, no `<placeholder>` parse traps, docs match reality |
-| Standardized / template | 10 | Canonical PLUTUS shape; could serve as a template |
-| Innovative | 15 | New metrics, novel diagnostics, non-textbook strategy logic |
+> **The score is reference-only.** Only the **Reproducible** bucket (50) is anchored to an
+> objective fact — `plutus check` exits 0, verified mechanically. The other three buckets
+> are advisory LLM assessments: they vary with the scoring model and the day, and the
+> rubric itself is subject to change. Canonical disclaimer (emitted with every score, and
+> rendered under the README badge by `plutus-document`):
+>
+> *PLUTUS score is an LLM-assessed reference signal, not a certified quality grade, and is
+> subject to change. The verified guarantee is reproducibility — `plutus check` exits 0.*
+
+| Bucket | Weight | Anchor | Measures |
+|--------|-------:|--------|----------|
+| Reproducible | 50 | objective (`plutus check` exit 0) | `plutus check` exits 0; README-claimed metrics match script output within tolerance |
+| Tidy / well-documented | 25 | LLM judgment | README structure, install hygiene, no `<placeholder>` parse traps, docs match reality |
+| Standardized / template | 10 | LLM judgment | Canonical PLUTUS shape; could serve as a template |
+| Innovative | 15 | LLM judgment | New metrics, novel diagnostics, non-textbook strategy logic |
 
 **Reproducible (50):**
 
@@ -444,23 +542,25 @@ scores need not be multiples of 5; only the final sum is rounded.) Example: 45 +
 
 **No hard gate.** A repo that can't make `plutus check` exit 0 isn't disqualified, but
 Reproducible is 50% of the total, so a non-reproducing repo caps at 25 + 10 + 15 = **50
-pts** (the Bronze floor), and only if exemplary everywhere else.
+pts**, and only if exemplary everywhere else.
 
 ### 6.2 Badges
 
-Machine-derived; thresholds carried forward unchanged. Repos below 50% do not qualify
-for a compliance badge.
+The score renders as a single `PLUTUS-<score>%` badge — the **only data-driven badge**,
+derived from the score above (so it inherits the reference-only caveat in
+[§6](#6-scoring-rubric); render the disclaimer near it). `plutus-document` emits it. There
+are **no tiers or ranks** — the badge shows the percentage, nothing more:
 
-| Score | Badge | Shields.io markup |
-|-------|-------|-------------------|
-| 50–69% | Bronze | `![Static Badge](https://img.shields.io/badge/PLUTUS-<score>-%23BA8E23)` |
-| 70–99% | Gold | `![Static Badge](https://img.shields.io/badge/PLUTUS-<score>-darkgreen)` |
-| 100% | Platinum | `![Static Badge](https://img.shields.io/badge/PLUTUS-100%25-purple)` |
+```
+![Static Badge](https://img.shields.io/badge/PLUTUS-<score>%25-<color>)
+```
 
-Replace `<score>` with the rounded number followed by `%25` (URL-encoded `%`), e.g.
-`85%25` renders as `85%`.
+Replace `<score>` with the rounded number; the literal `%25` is the URL-encoded `%`, so
+`85%25` renders as `85%`. `plutus-document` picks `<color>` from the score purely as a
+visual cue — it carries no grade or rank.
 
-**Special-designation badges** (awarded editorially, independent of score):
+**Special-designation badges** (config, not computed — awarded editorially, independent of
+score):
 
 | Designation | Shields.io markup |
 |-------------|-------------------|
@@ -471,15 +571,19 @@ Replace `<score>` with the rounded number followed by `%25` (URL-encoded `%`), e
 
 ## 7. CLI reference
 
-`plutus-verify` exposes a Click command group. Install with `pip install plutus-verify`.
-Every subcommand takes an optional `REPO_PATH` positional argument (default `.`).
+`plutus-verify` exposes a Click command group. It is a uv-managed project and is not on
+PyPI; install the CLI with uv from a release wheel
+(`uv tool install ./plutus_verify-<version>-py3-none-any.whl`) or from an editable
+checkout (`pip install -e ".[runner]"`). Every subcommand takes an optional `REPO_PATH`
+positional argument (default `.`).
 
 ### `plutus init [REPO_PATH] [--force]`
 
-Scaffolds three files: `.plutus/manifest.yaml` (skeleton with every required field and
+Scaffolds four files: `.plutus/manifest.yaml` (skeleton with every required field and
 `TODO` placeholders), `.github/workflows/plutus.yml` (CI running `plutus check` on push
-/ PR), and `.plutus/example_script.py` (annotated SDK instrumentation example).
-`--force` overwrites existing files.
+/ PR), `.plutus/example_script.py` (annotated SDK instrumentation example), and a
+`.dockerignore` (so `check` doesn't surprise-write one into the repo root at build time —
+0.5.0). `--force` overwrites existing files.
 
 ### `plutus check [REPO_PATH] [--secrets-from-env] [--data-tier {processed|raw|code|auto}] [--visual-check]`
 
@@ -487,23 +591,32 @@ Runs the v2 pipeline locally (the verification command — [§5](#5-the-plutus-c
 
 | Option | Default | Effect |
 |--------|---------|--------|
-| `--secrets-from-env` | off | Passes the caller's entire `os.environ` into the container as secrets, satisfying every declared `secrets[].key` without a secrets backend |
+| `--secrets-from-env` | off | Resolves **only the manifest's declared** `secrets[].key`s from the caller's environment and injects each into the steps that name it in `used_by`. It does **not** forward the whole `os.environ` (fixed in 0.4.2 — the old behavior leaked the host `PATH`/`HOME`/editor vars into the "reproducible" container and broke uv envs). A reserved-key denylist (`PATH`, `HOME`, `LD_LIBRARY_PATH`, `PYTHONPATH`, `VIRTUAL_ENV`, `UV_PROJECT_ENVIRONMENT`) is rejected even if declared. With `secrets: []`, nothing is injected |
 | `--data-tier` | `auto` | Forces a data tier; `auto` follows the processed → raw → command fall-through ([§4](#4-data-resolution-semantics)) |
 | `--visual-check` | off | Enables `visual_similarity` reference comparisons. **Requires `PLUTUS_VISION_ENDPOINT` and `PLUTUS_VISION_MODEL` env vars** (optionally `PLUTUS_VISION_API_KEY`); errors with exit 2 if they're unset. When off, `visual_similarity` entries fall back to byte comparison ([§5.4](#54-artifact-comparison)) |
 
 Exit code is the verdict ([§5.1](#51-exit-codes)). Manifest-load and Docker-build
 failures exit 2.
 
-### `plutus snapshot [REPO_PATH] --no-run [--no-artifacts] [--no-metrics]`
+### `plutus snapshot [REPO_PATH] [--no-run] [--no-artifacts] [--no-metrics]`
 
-Captures step outputs into `.plutus/expected/<step_id>/` and fills
-`expected.metrics[].value` in the manifest from the current run.
+The **bless** command ([§5.0](#50-bless-vs-verify-and-the-read-only-guarantee-050)). By
+default (0.5.0+) it builds the image, runs every step **in-container**, then writes the
+groundtruth — artifact files → `.plutus/expected/<step_id>/`, metric numbers →
+`expected.metrics[].value` in the manifest — plus a human-facing copy to your declared
+output paths (`result/…`). Snapshotting from the container's own output is what lets
+`byte_exact` baselines match what `check` later reproduces.
 
 | Option | Effect |
 |--------|--------|
-| `--no-run` | **Currently required** — snapshots existing outputs without re-running. Omitting it exits 3 (auto-run-before-snapshot is not wired in 0.2.10) |
+| `--no-run` | Opt out of the in-container run; bless the outputs already present locally instead. Use it when a step needs a secret the in-container `snapshot` path doesn't yet inject — run the step locally with the secret first, then `snapshot --no-run` |
 | `--no-artifacts` | Don't copy output files into `.plutus/expected/` |
 | `--no-metrics` | Don't write metric values into the manifest |
+
+> **Secrets during `snapshot`.** The in-container `snapshot` path currently injects no
+> secrets. If a step needs one to produce its baseline, either run it locally with the
+> secret and `snapshot --no-run`, or `plutus check . --secrets-from-env` first and
+> snapshot from there. First-class secret flags on `snapshot` are a planned follow-up.
 
 ### `plutus bootstrap [REPO_PATH] [--force]`
 
@@ -591,8 +704,8 @@ override the auto-injected values ([§2.4](#24-write-semantics)).
 ## 9. Troubleshooting catalogue
 
 Known failure patterns. Detailed Symptom → Diagnosis → Fix entries live in
-`skills/plutus-transform/references/known-gotchas.md` in the `plutus-automation-scoring`
-repository.
+`skills/plutus-standardize/references/known-gotchas.md` in the `plutus-automation-scoring`
+repository (the skill was named `plutus-transform` before 0.5.0).
 
 | ID | Title | Applies to |
 |----|-------|-----------|
@@ -600,18 +713,18 @@ repository.
 | G2 | Internally-conflicting dependency file | All versions — current |
 | G3 | `.env` placeholders crash shell sourcing | All versions — current |
 | G4 | `visual_similarity` artifacts silently failed | Historical — fixed in 0.2.6 |
-| G5 | Container stderr/stdout swallowed | Partially fixed in 0.2.6; step stderr surfacing still deferred — current |
+| G5 | Container stderr/stdout swallowed | Historical — resolved in 0.5.0 (stdout/stderr persisted, stderr tail printed) |
 | G6 | SDK rejects `Decimal` metric values | All versions — current |
 | G7 | Chart baseline captured after smoke-run is tautological | All versions — current |
 | G11 | Runtime volume mount bypasses `.dockerignore` | Historical — v0.2.9 only; fixed in 0.2.10 |
 | G12 | All execution steps FAIL exit=2 after declaring `step.inputs` | v0.2.10+ — current |
 
-On `plutus-verify` ≥ 0.2.10, G4 and G11 describe fixed bugs and can be ignored. The
-active pitfalls to watch are **G12** (the `inputs` allowlist — [§1.4](#14-step-object)),
-**G6** (`Decimal` — wrap in `float()`), **G1** (`network: bridge` for DB-at-import),
-**G3** (quote `.env` placeholders), and **G7** (capture chart baselines from a real run,
-not a smoke run). **G5** is only partially resolved: a step's stderr may not surface in
-the report — reproduce the command manually to diagnose.
+On `plutus-verify` 0.5.1, G4, G5, and G11 describe fixed behavior and can be ignored — a
+failing step now persists `stdout`/`stderr` to `.plutus/run/<step>/` and the report prints
+a stderr tail. The active pitfalls to watch are **G12** (the `inputs` allowlist —
+[§1.4](#14-step-object)), **G6** (`Decimal` — wrap in `float()`), **G1** (`network: bridge`
+for DB-at-import), **G3** (quote `.env` placeholders), and **G7** (capture chart baselines
+from a real run, not a smoke run).
 
 ---
 
@@ -619,15 +732,26 @@ the report — reproduce the command manually to diagnose.
 
 | Standard version | `plutus-verify` | Manifest `schema_version` | Results `schema_version` |
 |------------------|-----------------|---------------------------|--------------------------|
-| V2 (this document) | ≥ 0.2.10 | `"2.0"` | `"1.0"` |
+| V2 (this document) | ≥ 0.5.1 | `"2.0"` | `"1.0"` |
 | V1 | n/a (prose standard) | n/a | n/a |
 
-V2 was designed and validated against `plutus-verify` 0.2.10. Any release ≥ 0.2.10 and
-< 0.3.0 is expected to remain compatible; breaking changes increment the manifest or
-results schema version. V1 is archived verbatim at
-[versions/v1/README.md](versions/v1/README.md); V1-badged repos remain valid as
-v1-legacy until re-verified under V2. See [CHANGELOG.md](CHANGELOG.md) for the full
-history.
+This document tracks `plutus-verify` 0.5.1. The manifest and results `schema_version`
+strings have held at `"2.0"` / `"1.0"` since 0.2.10, but two changes inside that envelope
+matter for authoring:
+
+- **0.3.0 (breaking, taxonomy):** the `nine_step` enum adopted the v2025 keys
+  (`step_2_data_preparation`, `step_3_forming_set_of_rules`). A manifest with the old
+  `step_2_data_collection` / `step_3_data_processing` keys no longer loads. Re-author the
+  keys; no schema-version bump was issued.
+- **0.5.0 (non-breaking, data flow):** `check` became read-only and `snapshot` runs
+  in-container ([§5.0](#50-bless-vs-verify-and-the-read-only-guarantee-050)); `env` gained
+  the optional `manager` / `lockfile` / `install_project` keys ([§1.2](#12-env-sub-keys)).
+  Existing manifests keep working unchanged.
+
+A future breaking change will increment the manifest or results schema version. V1 is
+archived verbatim at [versions/v1/README.md](versions/v1/README.md); V1-badged repos
+remain valid as v1-legacy until re-verified under V2. See [CHANGELOG.md](CHANGELOG.md) for
+the full history.
 
 ---
 
