@@ -1,9 +1,9 @@
-# PLUTUS Authoring Guide
+# Plutus Authoring Guide
 
 > From an empty repo to a green `plutus check`, one step at a time.
 >
 > This is the hands-on guide. If you want the *why* behind the standard, read the
-> [README](README.md) first. If you want the exhaustive list of every field, option,
+> [STANDARD](STANDARD.md) first. If you want the exhaustive list of every field, option,
 > and API — every enum value, every edge case — see the
 > [technical reference](REFERENCE.md). This guide sits in the middle: it walks you
 > through the *actual work* of making one project compliant, in order, assuming you've
@@ -13,7 +13,7 @@ By the end you will have:
 
 - a `.plutus/manifest.yaml` that describes your pipeline,
 - your scripts reporting their results in a format the verifier understands,
-- and `plutus check` exiting `0` — the definition of a reproducible PLUTUS project.
+- and `plutus check` exiting `0` — the definition of a reproducible Plutus project.
 
 Take it in order. Each step builds on the previous one.
 
@@ -36,7 +36,7 @@ Take it in order. Each step builds on the previous one.
 
 ## 1. The mental model (read this once)
 
-Everything in PLUTUS comes down to three ideas. Hold these in your head and the rest
+Everything in Plutus comes down to three ideas. Hold these in your head and the rest
 follows:
 
 1. *The manifest is a promise.* In one file (`.plutus/manifest.yaml`) you declare:
@@ -87,7 +87,7 @@ our example uses small data files committed straight into the repo.
 ## 3. Our running example
 
 We'll make one simple strategy compliant from start to finish. Imagine a
-moving-average crossover backtest. Before adding PLUTUS, the repo looks like this:
+moving-average crossover backtest. Before adding Plutus, the repo looks like this:
 
 ```
 my-strategy/
@@ -103,7 +103,7 @@ my-strategy/
 `backtest.py` today just prints results to the screen:
 
 ```python
-# backtest.py  (BEFORE PLUTUS)
+# backtest.py  (BEFORE Plutus)
 sharpe = run_backtest("data/is/prices.csv")
 print(f"Sharpe ratio: {sharpe:.2f}")
 save_equity_curve("out/equity.png")
@@ -184,7 +184,7 @@ your script that has the final numbers.
 Find the point in your script where the final metrics exist, and wrap it:
 
 ```python
-# backtest.py  (AFTER PLUTUS)
+# backtest.py  (AFTER Plutus)
 import plutus_verify as pv
 
 sharpe = run_backtest("data/is/prices.csv")
@@ -591,7 +591,7 @@ ok out_of_sample: exit=0
     ok sharpe_ratio: actual=0.73 expected=0.73
 ```
 
-No `FAIL` lines, exit `0`. That's a reproducible PLUTUS project.
+No `FAIL` lines, exit `0`. That's a reproducible Plutus project.
 
 ---
 
@@ -672,9 +672,10 @@ You now have a compliant project. From here:
   and the cheapest ways to improve. Treat the number as a *reference signal, not a
   grade*: only the Reproducible 50 is objectively verified (`plutus check` exits 0) — the
   rest is LLM judgment that varies. The thing you can rely on is the green check. See
-  [how scoring works](README.md#how-scoring-and-badges-work).
+  [how scoring works](STANDARD.md#how-scoring-and-badges-work).
 - *Polish your README.* The Tidy bucket scores your documentation — see the
-  [README's documentation section](README.md#what-your-readme-should-contain).
+  [STANDARD's documentation section](STANDARD.md#what-your-readme-should-contain), and
+  start from [templates/README.template.md](templates/README.template.md).
 - *Graduate your data tier.* Once green with committed data, move large data to a
   remote source or a live database if your project needs it ([reference §3](REFERENCE.md)).
 - *Look at a real example.* The canonical V2 reference repo,
