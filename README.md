@@ -25,7 +25,7 @@ The standard makes that claim *mechanical*. Reproducible means one command,
 `plutus check`, re-runs the whole pipeline in a clean container and confirms the
 numbers match — no human judgment anywhere on the verification path.
 
-The previous version of the standard put the README forward as the main contract: a reviewer read it and, in principle, could re-run the project by hand. Now that re-run handles by machine. The philosophy is the same; only the proof became automatic. (The previous version is archived at [versions/v1/](versions/v1/) for projects badged
+The previous version of the standard put the README forward as the main contract: a reviewer read it and, in principle, could re-run the project by hand. Now that re-run handles by machine. The philosophy is the same; only the proof became automatic. (The previous version is archived at [archive/v1/](archive/v1/) for projects badged
 under the old criteria.)
 
 ---
@@ -370,6 +370,8 @@ have held steady since 0.2.10; what changed inside V2 is the nine-step taxonomy 
 and the read-only `check` / in-container `snapshot` data flow (0.5.0). See
 [REFERENCE.md §10](REFERENCE.md#10-versioning--schema-correspondence) for the details.
 
-Version 1 is preserved verbatim at [versions/v1/README.md](versions/v1/README.md).
-Projects badged under V1 keep their badges as `v1-legacy` until a maintainer
-re-verifies them under V2. See [CHANGELOG.md](CHANGELOG.md) for the full history.
+Past versions are kept in [archive/](archive/) — frozen, read-only snapshots of earlier
+releases, browsable but secondary to the current standard at the repo root. Version 1
+lives at [archive/v1/README.md](archive/v1/README.md); projects badged under V1 keep
+their badges as `v1-legacy` until a maintainer re-verifies them under V2. See
+[CHANGELOG.md](CHANGELOG.md) for the full history.

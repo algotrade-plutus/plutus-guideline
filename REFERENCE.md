@@ -747,49 +747,6 @@ matter for authoring:
   Existing manifests keep working unchanged.
 
 A future breaking change will increment the manifest or results schema version. V1 is
-archived verbatim at [versions/v1/README.md](versions/v1/README.md); V1-badged repos
+archived verbatim at [archive/v1/README.md](archive/v1/README.md); V1-badged repos
 remain valid as v1-legacy until re-verified under V2. See [CHANGELOG.md](CHANGELOG.md) for
 the full history.
-
----
-
-<!--
-  ───────────────────────────────────────────────────────────────────────────
-  DRAFT NOTE (remove before publishing) — for Dân, not end readers
-
-  This is the technical reference, revamped from the current README.md (the
-  1209-line spec) into a lookup-shaped document and renamed per your request.
-
-  What changed vs. the current README.md:
-    • Stripped the narrative intro ("what compliant means"), the V1-lineage
-      framing, and the tutorial-style prose — those now live in README.md (front
-      door) and GUIDE.md (how-to). This doc is pure contract.
-    • Reorganized for lookup: schema tables grouped by file, then a clean
-      separation of check contract / scoring / CLI / SDK.
-    • ADDED two sections that were scattered or absent before:
-        §7 CLI reference  — every subcommand + flag, verified against
-                            plutus_verify/__main__.py (0.2.10), incl. the
-                            PLUTUS_VISION_* env vars and the legacy `verify` note.
-        §8 SDK API reference — pv.step / Run.metric / Run.artifact / Run.metadata,
-                            verified against plutus_verify/sdk/run.py (note the
-                            unit default is "ratio", kind default "chart").
-    • §8 metric table now documents expected.metrics[].display_name and the
-      expected.artifacts[] {compare, threshold} fields, which the current README
-      under-documented (they were only in templates/manifest.yaml).
-
-  Proposed three-document end state:
-    • README.md      ← README.draft.md (front door)
-    • GUIDE.md       (step-by-step how-to)
-    • REFERENCE.md   ← THIS doc (technical contract)
-    • current README.md (1209-line spec) → to be DELETED once we wire the trio,
-      since its content is now split across the three above. Nothing normative
-      is lost.
-
-  All cross-links in README.draft.md and GUIDE.md already point at REFERENCE.md
-  §N anchors — verify they resolve during the wiring pass.
-
-  Open question: §8.2's old README had a worked `results.json` example and the
-  fraction-vs-ratio prose. I kept the rules but dropped the long example (it's in
-  GUIDE.md now). Tell me if you want the full annotated example here too.
-  ───────────────────────────────────────────────────────────────────────────
--->

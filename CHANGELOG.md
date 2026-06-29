@@ -10,7 +10,7 @@ Newest entries first.
 | Standard version | `plutus-verify` | Manifest `schema_version` | Results `schema_version` | Status |
 |------------------|-----------------|---------------------------|--------------------------|--------|
 | v2 (2026-06) | ≥ 0.2.10 | `"2.0"` | `"1.0"` | current |
-| v1 | n/a (prose standard) | n/a | n/a | superseded (archived at [versions/v1/](versions/v1/)) |
+| v1 | n/a (prose standard) | n/a | n/a | superseded (archived at [archive/v1/](archive/v1/)) |
 
 ---
 
@@ -46,8 +46,8 @@ Newest entries first.
 
 ### Repository moves
 
-- V1 README archived verbatim to `versions/v1/README.md`.
-- `assessment/` (assessment guide + report forms) moved to `versions/v1/assessment/`.
+- V1 README archived verbatim to `archive/v1/README.md`.
+- `assessment/` (assessment guide + report forms) moved to `archive/v1/assessment/`.
 
 ### Badge continuity
 
