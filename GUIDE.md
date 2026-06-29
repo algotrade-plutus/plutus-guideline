@@ -1,6 +1,6 @@
 # PLUTUS Authoring Guide
 
-> **From an empty repo to a green `plutus check`, one step at a time.**
+> From an empty repo to a green `plutus check`, one step at a time.
 >
 > This is the hands-on guide. If you want the *why* behind the standard, read the
 > [README](README.md) first. If you want the exhaustive list of every field, option,
@@ -13,7 +13,7 @@ By the end you will have:
 
 - a `.plutus/manifest.yaml` that describes your pipeline,
 - your scripts reporting their results in a format the verifier understands,
-- and `plutus check` exiting **0** — the definition of a reproducible PLUTUS project.
+- and `plutus check` exiting `0` — the definition of a reproducible PLUTUS project.
 
 Take it in order. Each step builds on the previous one.
 
@@ -30,8 +30,7 @@ Take it in order. Each step builds on the previous one.
 7. [Step D — Bless your baselines](#7-step-d--bless-your-baselines)
 8. [Step E — Run the check](#8-step-e--run-the-check)
 9. [Step F — When it's not green: fixing the common failures](#9-step-f--when-its-not-green-fixing-the-common-failures)
-10. [Step G — Keep it green with CI](#10-step-g--keep-it-green-with-ci)
-11. [Where to go next](#11-where-to-go-next)
+10. [Where to go next](#10-where-to-go-next)
 
 ---
 
@@ -40,20 +39,20 @@ Take it in order. Each step builds on the previous one.
 Everything in PLUTUS comes down to three ideas. Hold these in your head and the rest
 follows:
 
-1. **The manifest is a promise.** In one file (`.plutus/manifest.yaml`) you declare:
+1. *The manifest is a promise.* In one file (`.plutus/manifest.yaml`) you declare:
    *here are my pipeline steps, here's how my data is obtained, and here are the
    numbers each step will produce.*
 
-2. **`results.json` is what actually happened.** When a step runs, your code writes a
+2. `results.json` is what actually happened. When a step runs, your code writes a
    small file recording the metrics and charts it really produced.
 
-3. **`plutus check` compares the two — in a clean container.** It rebuilds your
+3. `plutus check` compares the two — in a clean container. It rebuilds your
    environment from scratch, runs every step, and checks that what actually happened
    (`results.json`) matches what you promised (the manifest). If it all matches, it
    exits `0`.
 
-The whole game is: **make the promise, make the code keep the promise, prove it in a
-clean room.** That's reproducibility.
+The whole game is: make the promise, make the code keep the promise, prove it in a
+clean room. That's reproducibility.
 
 > A "clean room" matters. `plutus check` doesn't trust your laptop's installed
 > packages, your cached data, or your environment variables. It builds a fresh Docker
@@ -67,10 +66,10 @@ Install these once:
 
 | Tool | Why | Check it's there |
 |------|-----|------------------|
-| **Docker** | The verifier runs every step inside a container. | `docker info` prints without error |
-| **Python 3.11+** | To run your scripts and the `plutus-verify` CLI. | `python --version` |
-| **[uv](https://docs.astral.sh/uv/)** | The package manager `plutus-verify` ships with. | `uv --version` |
-| **`plutus-verify`** | The package that provides the SDK and the `plutus check` command. | `plutus --help` |
+| Docker | The verifier runs every step inside a container. | `docker info` prints without error |
+| Python 3.11+ | To run your scripts and the `plutus-verify` CLI. | `python --version` |
+| [uv](https://docs.astral.sh/uv/) | The package manager `plutus-verify` ships with. | `uv --version` |
+| `plutus-verify` | The package that provides the SDK and the `plutus check` command. | `plutus --help` |
 
 `plutus-verify` is a uv-managed project and isn't on PyPI yet, so install the CLI with uv
 from a release wheel (ask the maintainers for the current `.whl`):
@@ -80,7 +79,7 @@ uv tool install ./plutus_verify-<version>-py3-none-any.whl
 docker info        # if this errors, start Docker Desktop / the docker daemon first
 ```
 
-You do **not** need any database, cloud account, or special hardware for this guide —
+You do not need any database, cloud account, or special hardware for this guide —
 our example uses small data files committed straight into the repo.
 
 ---
@@ -133,7 +132,7 @@ my-strategy/
 └── …
 ```
 
-The `[commit]` / `[gitignore]` tags matter: you commit the **groundtruth**
+The `[commit]` / `[gitignore]` tags matter: you commit the *groundtruth*
 (`.plutus/expected/` + the metric values in `manifest.yaml`) and a human-facing
 `result/` copy; everything `plutus check` produces on a run lands in the gitignored
 `.plutus/{run,results,cache}/` and never touches your committed files. That separation —
@@ -144,8 +143,8 @@ explains why.
 
 ## 4. Step A — Install the tools
 
-Covered above. One optional convenience: `plutus init` scaffolds a starter manifest, a
-CI workflow, and an example script so you're not staring at a blank file.
+Covered above. One optional convenience: `plutus init` scaffolds a starter manifest and
+an example script so you're not staring at a blank file.
 
 ```bash
 cd my-strategy
@@ -156,8 +155,6 @@ This creates:
 
 - `.plutus/manifest.yaml` — a skeleton with every required field present and `TODO`
   placeholders.
-- `.github/workflows/plutus.yml` — a CI workflow that runs `plutus check` on every push
-  (we'll cover this in Step G).
 - `.plutus/example_script.py` — an annotated example of the instrumentation you're
   about to add.
 - `.dockerignore` — keeps junk (`.git/`, `.env`, caches) out of the container build.
@@ -203,23 +200,23 @@ with pv.step("in_sample") as r:                       # "in_sample" = the step i
 
 When the `with` block exits cleanly, the SDK writes
 `.plutus/run/in_sample/results.json`. If your code raises an exception inside the
-block, **no file is written** — and the verifier treats a missing file as a failed
+block, no file is written — and the verifier treats a missing file as a failed
 step. That's deliberate: a crash should never look like a pass.
 
-> **Keep instrumentation additive.** Append the `with pv.step(...)` block; don't rewrite
+> *Keep instrumentation additive.* Append the `with pv.step(...)` block; don't rewrite
 > your existing logic. The cleanest place is the end of your
 > `if __name__ == "__main__":` section.
 
 ### 5.2 What's a metric vs. an artifact?
 
-- A **metric** is a single number: a Sharpe ratio, a win rate, a P&L, a trade count.
-- An **artifact** is a file your step produces: a chart, a CSV, a JSON report.
+- A *metric* is a single number: a Sharpe ratio, a win rate, a P&L, a trade count.
+- An *artifact* is a file your step produces: a chart, a CSV, a JSON report.
 
 ### 5.3 Three rules that trip up almost everyone
 
 These are small, but each one will cost you a confusing failure if you miss it:
 
-**Rule 1 — Always pass `float(...)`, never `Decimal`.** Many trading libraries return
+*Rule 1* — Always pass `float(...)`, never `Decimal`. Many trading libraries return
 `decimal.Decimal` for money-precise values. The SDK rejects `Decimal` (and `bool`). Wrap
 every value:
 
@@ -228,7 +225,7 @@ r.metric("sharpe_ratio", float(bt.sharpe()), unit="ratio")   # ✅
 r.metric("sharpe_ratio", bt.sharpe(), unit="ratio")          # ❌ if bt.sharpe() is a Decimal
 ```
 
-**Rule 2 — Percentages are stored as decimals; there is no `percent` unit.** A 42% win
+*Rule 2* — Percentages are stored as decimals; there is no `percent` unit. A 42% win
 rate is `0.42` with `unit="fraction"`. Never store `42`.
 
 ```python
@@ -236,7 +233,7 @@ r.metric("win_rate", 0.42, unit="fraction")   # ✅ means 42%
 r.metric("win_rate", 42,   unit="fraction")   # ❌ means 4200%
 ```
 
-**Rule 3 — Pick the right unit.** There are exactly five:
+*Rule 3* — Pick the right unit. There are exactly five:
 
 | Unit | Use it for | Example |
 |------|-----------|---------|
@@ -251,7 +248,7 @@ Sharpe-like number with no natural percentage, it's a `ratio`.*
 
 Artifact `kind` is one of: `chart`, `csv`, `json`, `image`, `other`.
 
-> Metric and artifact **names** must be lowercase snake_case: start with a letter, then
+> Metric and artifact *names* must be lowercase snake_case: start with a letter, then
 > letters/digits/underscores (`sharpe_ratio`, `equity_curve`). No spaces, no capitals.
 
 ### 5.4 Run the script and look at what it wrote
@@ -281,7 +278,7 @@ You should see something like:
 (`duration_seconds` and `git_commit` are filled in for you automatically.) Do the same
 for `evaluate.py`, using a different step id like `out_of_sample`.
 
-**Repeat this for every script whose numbers your README claims.** That's the whole of
+Repeat this for every script whose numbers your README claims. That's the whole of
 Step B.
 
 ---
@@ -291,7 +288,7 @@ Step B.
 Now the promise. Create `.plutus/manifest.yaml`. We'll build it one section at a time;
 by the end of this step you'll have a complete, valid file.
 
-> The manifest must be **valid YAML**, committed to git, and it must use only the keys
+> The manifest must be *valid YAML*, committed to git, and it must use only the keys
 > shown here — unknown or misspelled keys are rejected, not ignored. If `plutus check`
 > says "additional properties are not allowed," you have a typo in a key name.
 
@@ -318,7 +315,7 @@ env:
 `base: python` covers almost every project. Use `python-cuda` only for GPU workloads.
 `requirements_file` points at whatever pins your dependencies.
 
-> **Lock your environment for real reproducibility.** A loose `requirements.txt` installs
+> *Lock your environment* for real reproducibility. A loose `requirements.txt` installs
 > whatever versions exist at build time, so a rebuild months later can pull different
 > packages and produce different numbers — which defeats the point. To pin every
 > dependency exactly, use a committed lockfile:
@@ -336,14 +333,14 @@ env:
 > what makes `byte_exact` chart/CSV comparisons trustworthy — without it, byte-level
 > drift across machines is expected.
 >
-> **Installable package?** If your pipeline runs via a console script (e.g. `pmm-backtest`)
+> *Installable package?* If your pipeline runs via a console script (e.g. `pmm-backtest`)
 > or `python -m your_package.…`, also set `install_project: true` (uv-only, needs a
-> `pyproject.toml` at the repo root) so the image installs your *own* package, not just
+> `pyproject.toml` at the repo root) so the image installs your own package, not just
 > its dependencies. Without it those entry points won't exist in the container.
 
 ### 6.3 `secrets` — credentials your steps need
 
-Our example needs none, so it's an empty list. **The key is still required** — write
+Our example needs none, so it's an empty list. The key is still required — write
 `[]`, don't delete it:
 
 ```yaml
@@ -356,7 +353,7 @@ and the [reference](REFERENCE.md) for the database pattern.)
 
 ### 6.4 `data_sources` — how data reaches the container
 
-There are **two required arrays**, `processed` and `raw`. The verifier looks in
+There are two required arrays, `processed` and `raw`. The verifier looks in
 `processed` first, then `raw`, then falls back to running a step's `command`.
 
 Because our data is small and committed into the repo (the simplest pattern, "Tier 1"),
@@ -379,10 +376,10 @@ data_sources:
 - `satisfies` names the step ids that depend on this data — those ids must match steps
   you declare below.
 
-> Make sure your `.gitignore` does **not** exclude the committed data paths, or the
+> Make sure your `.gitignore` does not exclude the committed data paths, or the
 > files won't be there when the verifier looks.
 
-**If your data is too big to commit**, you'd instead host it (Google Drive, a GitHub
+*If your data is too big to commit*, you'd instead host it (Google Drive, a GitHub
 release, an HTTP/S3 URL) and declare it under `raw`, or query a database live. Those are
 "Tier 2/3/4" — start with committed data to get green, then graduate. The
 [reference §3](REFERENCE.md) covers each tier in full.
@@ -416,20 +413,20 @@ Field by field:
 
 | Field | What to put |
 |-------|-------------|
-| `id` | A unique name. **Must match the `pv.step("...")` id in your code.** |
+| `id` | A unique name. Must match the `pv.step("...")` id in your code. |
 | `nine_step` | One of the seven canonical keys (table below), or `null` for a step that doesn't fit any. |
 | `required` | `true` for steps that must pass. A `required` step failing → exit 2. |
 | `command` | The shell command that runs the step. Required for the `data_preparation` step (its `id` is literally `data_preparation`). |
-| `inputs` | **Leave it `[]`.** See the warning below — this is the #1 newbie trap. |
+| `inputs` | Leave it `[]`. See the warning below — this is the #1 newbie trap. |
 | `outputs` | Files the step produces. Informational; helps reviewers. |
 | `depends_on` | Step ids that must run first. Sets the order. |
 
-The seven canonical `nine_step` keys — **copy them exactly**:
+The seven canonical `nine_step` keys — copy them exactly:
 
 | Key | Stage |
 |-----|-------|
 | `step_1_hypothesis` | Hypothesis |
-| `step_2_data_preparation` | Data preparation (collection **and** processing) |
+| `step_2_data_preparation` | Data preparation (collection and processing) |
 | `step_3_forming_set_of_rules` | Forming the set of rules |
 | `step_4_in_sample` | In-sample backtest |
 | `step_5_optimization` | Optimization |
@@ -441,14 +438,14 @@ The seven canonical `nine_step` keys — **copy them exactly**:
 > copying an older manifest, the keys `step_2_data_collection` / `step_3_data_processing`
 > no longer load — rename them.
 
-> **⚠️ The `inputs` trap (the single most common newbie failure).** It's tempting to
+> ⚠️ **The `inputs` trap** (the single most common newbie failure). It's tempting to
 > list your data files under `inputs:`. Don't. When `inputs` is non-empty it becomes a
 > *complete allowlist*: ONLY the listed files are copied into the container — including,
 > or rather *excluding*, your own script. If you write `inputs: [data/is/prices.csv]`,
-> the verifier copies that one file and **not** `backtest.py`, so the step dies with
+> the verifier copies that one file and not `backtest.py`, so the step dies with
 > `python: can't open file 'backtest.py': No such file or directory` and exits 2.
 >
-> **Always start with `inputs: []`**, which copies your whole repo (minus
+> Always start with `inputs: []`, which copies your whole repo (minus
 > `.dockerignore` entries). Only tighten it later, file by file, once everything works.
 
 ### 6.6 `expected` — the numbers you promise
@@ -485,7 +482,7 @@ How tolerances work — pick one `kind` per metric:
 | `absolute` | actual is within ± `value` of expected | metrics near zero, or fixed precision |
 | `exact` | actual equals expected exactly | integer counts only — avoid for floats |
 
-> **Don't use `exact` on a float.** Floating-point math gives tiny differences across
+> *Don't use `exact` on a float.* Floating-point math gives tiny differences across
 > machines (`1.4200000001` vs `1.42`), so `exact` will fail for reasons that have
 > nothing to do with your strategy. Use `relative` or `absolute` for any non-integer.
 
@@ -523,8 +520,8 @@ valid `.plutus/manifest.yaml`.
 
 `plutus` has two verbs that run the *same* pipeline and differ only in the last move:
 
-- **`plutus snapshot` = bless.** Run every step, then *write* the groundtruth you commit.
-- **`plutus check` = verify.** Run the same steps, then *compare* against that groundtruth.
+- `plutus snapshot` = bless. Run every step, then *write* the groundtruth you commit.
+- `plutus check` = verify. Run the same steps, then *compare* against that groundtruth.
   Read-only — it never edits your committed files.
 
 Why split them? A baseline should change only when you *decide* it should — never as an
@@ -538,7 +535,7 @@ Bless now:
 plutus snapshot .
 ```
 
-This builds the image, runs every step **inside the container**, and writes three things:
+This builds the image, runs every step inside the container, and writes three things:
 the metric values into `manifest.yaml`, the artifact files into
 `.plutus/expected/<step_id>/`, and a human-facing copy to your declared output paths
 (`result/…`). Commit the groundtruth:
@@ -548,12 +545,12 @@ git add .plutus/expected manifest.yaml result
 git commit -m "bless reproducibility baseline"
 ```
 
-> **Why in-container?** A chart or `.parquet` rendered on your laptop won't be byte-identical
+> *Why in-container?* A chart or `.parquet` rendered on your laptop won't be byte-identical
 > to one rendered in the container — different fonts, library builds, CPU. Blessing from
 > the *container's* own output means the baseline matches what `check` will reproduce, so
 > strict `byte_exact` comparisons actually hold (when your env is locked — see [§6.2](#62-env--the-environment-to-build)).
 
-> **Need a secret to produce a baseline?** The in-container `snapshot` doesn't inject
+> *Need a secret to produce a baseline?* The in-container `snapshot` doesn't inject
 > secrets yet. Run the step locally with the secret, then `plutus snapshot . --no-run` to
 > bless the outputs already on disk instead of re-running.
 
@@ -573,15 +570,15 @@ are passed in, nothing else.)
 
 What happens: the verifier builds a Docker image from your `env`, runs each step in
 dependency order inside it, collects each `results.json`, and compares everything to
-your manifest. It's **read-only** — everything it produces lands in the gitignored
-`.plutus/{run,results,cache}/`, so your working tree stays clean and it's safe to run in
-CI or a pre-commit hook. Then it exits with a code:
+your manifest. It's read-only — everything it produces lands in the gitignored
+`.plutus/{run,results,cache}/`, so your working tree stays clean and it's safe to run
+repeatedly (for example as a pre-commit hook). Then it exits with a code:
 
 | Exit code | What it means | What to do |
 |-----------|---------------|------------|
-| **0** | 🎉 Everything reproduced. You're compliant. | Commit, add the badge, wire up CI (Step G). |
-| **1** | Steps ran, but a number or chart didn't match your promise. | Check the `FAIL` lines — usually a tolerance or a stale `expected` value. |
-| **2** | A required step crashed, or the manifest is invalid. | Read the error; jump to Step F. |
+| 0 | 🎉 Everything reproduced. You're compliant. | Commit and add the badge. |
+| 1 | Steps ran, but a number or chart didn't match your promise. | Check the `FAIL` lines — usually a tolerance or a stale `expected` value. |
+| 2 | A required step crashed, or the manifest is invalid. | Read the error; jump to Step F. |
 
 A green run prints something like:
 
@@ -605,7 +602,7 @@ hit, by symptom:
 
 ### "No such file or directory" / every step exits 2
 
-You almost certainly put real paths in `inputs:`. Set **`inputs: []`** on every step
+You almost certainly put real paths in `inputs:`. Set `inputs: []` on every step
 (see [6.5](#65-steps--your-pipeline-the-heart-of-the-manifest)). This is by far the most
 common cause of a wall of exit-2 failures.
 
@@ -640,7 +637,7 @@ step that imports it needs `network: bridge` too.
 
 Your result drifted from the promised value. Three possibilities: your tolerance is too
 tight (widen `relative`/`absolute`); the `expected` value is genuinely stale because you
-*intended* to change the output — in which case **re-bless** with `plutus snapshot .` and
+*intended* to change the output — in which case re-bless with `plutus snapshot .` and
 commit the updated `.plutus/expected/` + `manifest.yaml` + `result/`, then update your
 README table to match (they must agree); or your code regressed without you meaning to —
 in which case the check is doing its job, so investigate, don't loosen the tolerance to
@@ -654,9 +651,9 @@ hand.
 
 ### A chart shows `SKIP` or `WARN` instead of `ok`
 
-`visual_similarity` comparisons are **non-blocking** unless you explicitly run with a
+`visual_similarity` comparisons are *non-blocking* unless you explicitly run with a
 vision check wired up. `SKIP` (no baseline yet) and `WARN` (bytes differ, inconclusive)
-do **not** fail the run — they won't stop you reaching exit 0. Capture a baseline with
+do not fail the run — they won't stop you reaching exit 0. Capture a baseline with
 `plutus snapshot` ([Step D](#7-step-d--bless-your-baselines)) to turn `SKIP` into a
 real comparison.
 
@@ -666,47 +663,21 @@ real comparison.
 
 ---
 
-## 10. Step G — Keep it green with CI
-
-A green check today is worth more if it stays green. Add a CI workflow that runs
-`plutus check` on every push. `plutus init` already scaffolded one at
-`.github/workflows/plutus.yml` — use it as the authoritative version, since it wires in
-the right way to fetch the CLI wheel. A minimal shape looks like:
-
-```yaml
-name: plutus
-on: [push, pull_request]
-jobs:
-  check:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: astral-sh/setup-uv@v5
-      - run: uv tool install ./plutus_verify-<version>-py3-none-any.whl   # the CLI wheel
-      - run: plutus check .
-```
-
-Also commit a `.python-version` file (or a `python_version` in `pyproject.toml`) so
-local and CI environments resolve the same interpreter. Both of these also earn you
-points in the **Tidy** scoring bucket.
-
----
-
-## 11. Where to go next
+## 10. Where to go next
 
 You now have a compliant project. From here:
 
-- **Understand your score.** Compliance is graded on four buckets (Reproducible 50,
+- *Understand your score.* Compliance is graded on four buckets (Reproducible 50,
   Tidy 25, Standardized 10, Innovative 15). Run the `plutus-scoring` skill for a breakdown
-  and the cheapest ways to improve. Treat the number as a **reference signal, not a
-  grade**: only the Reproducible 50 is objectively verified (`plutus check` exits 0) — the
+  and the cheapest ways to improve. Treat the number as a *reference signal, not a
+  grade*: only the Reproducible 50 is objectively verified (`plutus check` exits 0) — the
   rest is LLM judgment that varies. The thing you can rely on is the green check. See
   [how scoring works](README.md#how-scoring-and-badges-work).
-- **Polish your README.** The Tidy bucket scores your documentation — see the
+- *Polish your README.* The Tidy bucket scores your documentation — see the
   [README's documentation section](README.md#what-your-readme-should-contain).
-- **Graduate your data tier.** Once green with committed data, move large data to a
+- *Graduate your data tier.* Once green with committed data, move large data to a
   remote source or a live database if your project needs it ([reference §3](REFERENCE.md)).
-- **Look at a real example.** The canonical V2 reference repo,
+- *Look at a real example.* The canonical V2 reference repo,
   [Group09-BuyHighSellLow](https://github.com/algotrade-education/Group09-BuyHighSellLow),
   is a fully instrumented project you can copy patterns from.
 
