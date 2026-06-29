@@ -1,6 +1,6 @@
 # CHANGELOG
 
-All notable changes to the PLUTUS Standard are documented here.
+All notable changes to the Plutus Reproducibility Standard are documented here.
 Newest entries first.
 
 ---

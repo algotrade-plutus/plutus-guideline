@@ -1,9 +1,9 @@
-# PLUTUS Technical Reference
+# Plutus Technical Reference
 
 > The complete, normative contract — every field, enum, default, exit code, and API.
 >
 > This document is for lookup, not reading front-to-back. For *why* the standard exists,
-> read the [README](README.md). For a *step-by-step walkthrough* of making a project
+> read the [STANDARD](STANDARD.md). For a *step-by-step walkthrough* of making a project
 > compliant, read the [GUIDE](GUIDE.md). This reference is the authority for the exact
 > rules those two documents summarize.
 >
@@ -45,7 +45,7 @@ Conventions used in every table below:
 ## 1. Manifest schema
 
 `.plutus/manifest.yaml`, committed to git, valid YAML with a mapping root, validating
-against the PLUTUS v2 JSON Schema (Draft 2020-12) and all cross-field invariants
+against the Plutus v2 JSON Schema (Draft 2020-12) and all cross-field invariants
 ([§1.7](#17-cross-field-invariants)). A file failing either check is rejected with a
 load error before any step runs (`plutus check` exit 2).
 
@@ -231,7 +231,7 @@ Each entry in `data_sources.processed[]` or `data_sources.raw[]`
 
 `.plutus/run/<step_id>/results.json`, written by each executed step
 (`verification_mode: execute`) on a clean exit. Valid JSON, validating against the
-PLUTUS results JSON Schema (Draft 2020-12). `schema_version` MUST be exactly `"1.0"`.
+Plutus results JSON Schema (Draft 2020-12). `schema_version` MUST be exactly `"1.0"`.
 
 `additionalProperties: false` applies at the root, metric, and artifact levels.
 `metadata` is the sole open object.
@@ -496,14 +496,14 @@ does *not* run `plutus check` itself.
 > rubric itself is subject to change. Canonical disclaimer (emitted with every score, and
 > rendered under the README badge by `plutus-document`):
 >
-> *PLUTUS score is an LLM-assessed reference signal, not a certified quality grade, and is
+> *Plutus score is an LLM-assessed reference signal, not a certified quality grade, and is
 > subject to change. The verified guarantee is reproducibility — `plutus check` exits 0.*
 
 | Bucket | Weight | Anchor | Measures |
 |--------|-------:|--------|----------|
 | Reproducible | 50 | objective (`plutus check` exit 0) | `plutus check` exits 0; README-claimed metrics match script output within tolerance |
 | Tidy / well-documented | 25 | LLM judgment | README structure, install hygiene, no `<placeholder>` parse traps, docs match reality |
-| Standardized / template | 10 | LLM judgment | Canonical PLUTUS shape; could serve as a template |
+| Standardized / template | 10 | LLM judgment | Canonical Plutus shape; could serve as a template |
 | Innovative | 15 | LLM judgment | New metrics, novel diagnostics, non-textbook strategy logic |
 
 *Reproducible (50):*
