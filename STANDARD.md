@@ -217,9 +217,12 @@ A few practical notes:
 - *You can have extra steps.* A feature-engineering or model-training stage that
   doesn't fit any of the seven keys is fine — set `nine_step: null` and give it a
   readable `label`.
-- *Reproducibility is expected through Step 6 (minimum) and Step 7 (ideal).* Paper
-  trading often can't be re-run automatically (it needs a live broker and real-time
-  feeds), so the standard lets you *document* it rather than execute it. See
+- *Metric reproducibility is expected through Step 6 (minimum); Step 7 coverage is the
+  ideal addition.* Steps 1–6 are deterministic functions of historical data, so their
+  numbers can be re-derived and compared. Paper trading runs forward against a live
+  broker and real-time feeds, so its *results* cannot be re-derived at all — a re-run
+  meets a different market. The standard therefore lets you *document* Step 7, or verify
+  that its implementation exists and runs, rather than compare its metrics. See
   [REFERENCE.md §3](REFERENCE.md#3-the-nine-step-keys) for how.
 
 ---
@@ -286,10 +289,12 @@ Plutus README covers, at minimum:
 - *Abstract* — the project in under five sentences.
 - *Introduction* — the why, the how, and the goal, in a paragraph or two.
 - *Trading Hypotheses* — your Step 1.
-- *Data* — collection (Step 2) and processing (Step 3): what data, what period, how
-  to get it, what you did to it.
+- *Data* — data preparation (Step 2), covering both collection and processing: what
+  data, what period, how to get it, what you did to it.
+- *Rules* — transforming the hypothesis into an executable rule set (Step 3).
 - *Implementation / How to Run* — environment setup and the concrete steps to
-  reproduce from in-sample backtesting through to out-of-sample or paper trading.
+  reproduce from in-sample backtesting through to out-of-sample evaluation, plus how
+  to run the paper-trading stage if the project declares one.
 - *In-sample Backtesting*, *Optimization*, *Out-of-sample Backtesting* — each
   with a results subsection. The numbers here must match the manifest's `expected`
   block and what the code actually produces.

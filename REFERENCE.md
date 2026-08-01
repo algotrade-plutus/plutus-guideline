@@ -314,8 +314,17 @@ step whose `nine_step` is `step_2_data_preparation` (invariant 9).
 *Fixed frame, free content.* The standard fixes the seven key strings, the manifest
 field names, and the enums — not the number of steps or their content. A repo may
 declare additional steps with `nine_step: null` (provide a `label`). Steps 8–9 of the
-9-step process (live trading, continuous improvement) are out of scope for `plutus
-check`. Reproducibility is expected through Step 6 (minimum) and Step 7 (ideal).
+9-step process (small-account testing, real trading) are out of scope for `plutus
+check`: they commit real capital under market conditions that are unrepeatable events.
+
+Steps 1–6 are the reproducible core, and metric comparison applies to them: every input
+is historical, so each step is a deterministic function of disclosed data and code.
+Step 7 is a different kind of claim. Paper trading runs forward against live data that
+did not exist when the configuration was frozen, so its *results* cannot be re-derived —
+a re-run meets a different market. What `plutus check` can establish for Step 7 is that
+the paper-trading implementation is present and executable, which is a coverage and
+executability claim rather than a metric comparison. Reproducibility through Step 6 is
+the minimum for a compliant project; Step 7 coverage is the ideal addition on top.
 
 Paper trading, which usually can't be re-executed automatically, has two supported
 patterns (which MAY be combined):
