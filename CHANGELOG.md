@@ -52,7 +52,7 @@ Newest entries first.
 ### Badge continuity
 
 The canonical v2 reference project
-([Group09-BuyHighSellLow](https://github.com/algotrade-education/Group09-BuyHighSellLow))
+(`Group09-BuyHighSellLow`)
 was re-scored under the v2 buckets on 2026-06-11, against `plutus-verify` 0.2.10:
 
 | Bucket | Score | Reasoning |

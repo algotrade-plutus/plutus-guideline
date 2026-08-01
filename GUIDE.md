@@ -679,7 +679,7 @@ You now have a compliant project. From here:
 - *Graduate your data tier.* Once green with committed data, move large data to a
   remote source or a live database if your project needs it ([reference §3](REFERENCE.md)).
 - *Look at a real example.* The canonical V2 reference repo,
-  [Group09-BuyHighSellLow](https://github.com/algotrade-education/Group09-BuyHighSellLow),
+  `Group09-BuyHighSellLow`,
   is a fully instrumented project you can copy patterns from.
 
 ---

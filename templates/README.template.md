@@ -4,7 +4,7 @@
 > notes add conventions and gotchas.
 >
 > - *Replace every bracketed slot with your content.*
-> - *Keep the section order — it follows the [9-step Development Process](https://www.algotrade.vn/knowledge/9-step-process/the-9-step)
+> - *Keep the section order — it follows the [9-step Development Process](../PHILOSOPHY.md)
 >   and what `plutus check` verifies, so a hand-written README lines up with what the
 >   `plutus-document` tool would generate from your manifest.*
 > - *Drop any section that doesn't apply (e.g. no optimization step → omit §5) and renumber
@@ -37,8 +37,8 @@
 [Two to four sentences, in plain language: what the strategy does and how it works.] Then
 one sentence tying it to the data and the standard: developed and evaluated end-to-end on
 [data source + period] following the
-[9-step Development Process](https://www.algotrade.vn/knowledge/9-step-process/the-9-step)
-and the [Plutus Reproducibility Standard](https://github.com/algotrade-plutus/plutus-guideline).
+[9-step Development Process](../PHILOSOPHY.md)
+and the Plutus Reproducibility Standard.
 On the in-sample period it reaches [headline in-sample metrics]; on the out-of-sample
 period it reaches [headline out-of-sample metrics]. Every reported number is reproducible
 in an isolated Docker container via `plutus-verify` against a committed groundtruth
@@ -155,7 +155,7 @@ Delete it entirely if your project needs no secrets.]
 
 This repo ships a `.plutus/manifest.yaml` declaring the environment, data sources, steps,
 and expected metrics. Reproduce every result in an isolated Docker container with
-[plutus-verify](https://github.com/algotrade-plutus/plutus-verify) **[pin the version you
+`plutus-verify` **[pin the version you
 blessed against]**, installed from the public release wheel:
 
 ```bash

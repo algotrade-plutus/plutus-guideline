@@ -36,16 +36,20 @@ under the old criteria.)
 Reproducibility is supported by two things working together:
 
 **1. The 9-step process — the concept.**
-ALGOTRADE's [9-step process](https://www.algotrade.vn/knowledge/9-step-process)
-describes how a trading strategy should be developed, from forming a hypothesis to
-live trading. It gives every project the same skeleton:
+The [nine-step process](PHILOSOPHY.md) describes how a trading strategy should be
+developed, from forming a hypothesis through to trading real capital. It gives every
+project the same skeleton:
 
 > hypothesis → data preparation → forming the set of rules → in-sample backtest →
-> optimization → out-of-sample backtest → paper trading → live trading →
-> continuous improvement
+> optimization → out-of-sample backtest → paper trading → small-account testing →
+> real trading
 
-Plutus cares about *Steps 1 through 7* (up to paper trading). Steps 8 and 9 (live
-trading, continuous improvement) are out of scope — they cannot be re-run on demand.
+Plutus verifies *Steps 1 through 6* in full: these are deterministic functions of
+disclosed data and code, so produced metrics can be compared against promised ones.
+*Step 7* (paper trading) runs forward against live data, so its results cannot be
+re-derived — only that its implementation is present and executable; it is treated as a
+coverage and executability claim. *Steps 8 and 9* (small-account testing, real trading)
+commit real capital under unrepeatable market conditions and are out of scope.
 
 **2. This guideline — the practice.**
 The 9-step process tells you *what* good research looks like. This guideline tells you
@@ -237,7 +241,7 @@ If you're starting out, Tier 1 or Tier 2 is almost always the right choice.
 
 > The exact `data_sources` shape, the `processed → raw → command` fallback logic, and
 > how secrets are routed are in [REFERENCE.md §4](REFERENCE.md#4-data-resolution-semantics).
-> ALGOTRADE's shared datasets are documented in [archive/v1/data/DATA.md](archive/v1/data/DATA.md).
+> Shared datasets are documented in [archive/v1/data/DATA.md](archive/v1/data/DATA.md).
 
 ---
 
@@ -351,16 +355,16 @@ There are also three AI-assisted Claude Code skills, chained in this order:
 ## Sample projects & badges
 
 A growing set of projects carry Plutus badges. The canonical reference is
-[Group09-BuyHighSellLow](https://github.com/algotrade-education/Group09-BuyHighSellLow)
+`Group09-BuyHighSellLow`
 — a fully instrumented repo that passes `plutus check` and scores 90%. Start
 from its `.plutus/` directory if you want a concrete working example.
 
 Projects badged under V1's criteria remain valid until re-verified under V2. The exact
 badge markup is in [REFERENCE.md §6.2](REFERENCE.md#62-badges). More educational examples
-live at [github.com/algotrade-course](https://github.com/algotrade-course).
+published in the project catalogue.
 
-Projects must be hosted under an ALGOTRADE-managed GitHub organization
-(`algotrade-research`, `algotrade-course`, `algotrade-education`, and others as the
+Projects must be hosted under a catalogue-managed GitHub organization
+(the research, course, and education organizations, and others as the
 program grows).
 
 ---

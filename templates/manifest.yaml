@@ -105,7 +105,7 @@ data_sources:
 #   processed: []
 #   raw:
 #     - kind: google_drive          # or: github_release | http | s3 | manual
-#       url: https://drive.google.com/drive/folders/<FOLDER_ID>
+#       url: https://<object-store-or-shared-drive>/<FOLDER_ID>
 #       expected_layout:
 #         - data/is/prices.csv
 #         - data/os/prices.csv

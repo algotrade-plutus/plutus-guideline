@@ -15,6 +15,7 @@ Pick the door that matches what you're doing:
 
 | If you want to… | Read |
 |-----------------|------|
+| Understand the methodology and its principles | [PHILOSOPHY.md](PHILOSOPHY.md) |
 | Understand the *why* and the rules | [STANDARD.md](STANDARD.md) |
 | Make a repository compliant, step by step | [GUIDE.md](GUIDE.md) |
 | Look up an exact field, exit code, or API | [REFERENCE.md](REFERENCE.md) |
@@ -25,6 +26,9 @@ New to the standard? Read [STANDARD.md](STANDARD.md) first — it stands on its 
 
 ## What's in this repo
 
+- [PHILOSOPHY.md](PHILOSOPHY.md) — the methodology: the three scientific principles
+  (transparency, falsifiability, consistency), the nine-step process with each step's
+  input, output, and validation criterion, and what the standard does and does not verify.
 - [STANDARD.md](STANDARD.md) — the standard: the philosophy, the two pillars (the 9-step
   process and this guideline), what "compliant" means, scoring, and badges.
 - [GUIDE.md](GUIDE.md) — a hands-on walkthrough from an empty repo to a green
@@ -42,7 +46,7 @@ The standard is tool-agnostic about *how* you work: compliance is defined by two
 artifacts — a manifest and a results contract — that you can produce any way you like.
 ([STANDARD.md](STANDARD.md) explains what they are; [GUIDE.md](GUIDE.md) walks through
 producing them.) Those artifacts are then verified by
-[plutus-verify](https://github.com/algotrade-plutus/plutus-verify), which rebuilds the
+`plutus-verify`, which rebuilds the
 project in a clean container and confirms the numbers reproduce. The same project also
 ships Claude Code skills that help you produce compliant artifacts in the first place:
 `plutus-standardize` (bring a repo up to the standard), `plutus-scoring` (score it), and

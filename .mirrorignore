@@ -1,0 +1,17 @@
+# Paths excluded from the anonymized review mirror.
+# Consumed by the mirror build; one path prefix or glob per line.
+# Rationale is recorded inline because the exclusions are review-visible decisions.
+
+# Superseded v1 standard. Contains ~15 named project repositories with their
+# GitHub organization URLs; the paper describes v2 only, so nothing of review
+# value is lost and 30 identifying references are removed in one move.
+archive/
+
+# Git metadata: the mirror is a history-free single commit under a neutral
+# identity, so no upstream remote or commit authorship travels with it.
+.git/
+.github/
+
+# Local editor / OS noise.
+.DS_Store
+**/.DS_Store
